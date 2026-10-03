@@ -1,0 +1,31 @@
+{
+  "name": "clinic-mvp",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @clinic/api --filter @clinic/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r test",
+    "db:generate": "pnpm --filter @clinic/api db:generate",
+    "db:migrate": "pnpm --filter @clinic/api db:migrate",
+    "db:seed": "pnpm --filter @clinic/api db:seed",
+    "clinic:create": "pnpm --filter @clinic/api clinic:create"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.9.9",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0"
+  },
+  "type": "module"
+}
