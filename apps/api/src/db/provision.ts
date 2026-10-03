@@ -31,7 +31,9 @@ export async function provisionClinic(ownerDb: Database, input: ProvisionInput) 
       .returning();
     if (!user) throw new Error('User insert returned no row');
     if (input.admin.doctor) {
-      await tx.insert(doctorProfiles).values({ clinicId: clinic.id, userId: user.id, ...input.admin.doctor });
+      await tx
+        .insert(doctorProfiles)
+        .values({ clinicId: clinic.id, userId: user.id, ...input.admin.doctor });
     }
     return { clinic, user };
   });

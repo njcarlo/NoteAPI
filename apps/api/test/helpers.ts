@@ -41,7 +41,13 @@ export async function createClinicFixture(label: string): Promise<ClinicFixture>
   const extra = async (who: string, roles: Role[]) => {
     const [row] = await owner.db
       .insert(users)
-      .values({ clinicId: clinic.id, name: `${who} ${label}`, email: email(who), roles, passwordHash })
+      .values({
+        clinicId: clinic.id,
+        name: `${who} ${label}`,
+        email: email(who),
+        roles,
+        passwordHash,
+      })
       .returning();
     return row!.id;
   };

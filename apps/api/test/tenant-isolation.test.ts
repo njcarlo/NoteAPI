@@ -4,7 +4,14 @@ import type { App } from '../src/app';
 import { db } from '../src/db/client';
 import { auditLogs, patients, users } from '../src/db/schema';
 import { withTenant } from '../src/db/tenant';
-import { createClinicFixture, samplePatient, signIn, startApp, type ClinicFixture, type SignedIn } from './helpers';
+import {
+  createClinicFixture,
+  samplePatient,
+  signIn,
+  startApp,
+  type ClinicFixture,
+  type SignedIn,
+} from './helpers';
 
 let app: App;
 let a: ClinicFixture;
@@ -19,7 +26,10 @@ beforeAll(async () => {
   b = await createClinicFixture('tenant-b');
   aDoctor = await signIn(app, a.emails.doctor);
   bDoctor = await signIn(app, b.emails.doctor);
-  const res = await aDoctor.agent.post('/api/patients').set('x-csrf-token', aDoctor.csrf).send(samplePatient);
+  const res = await aDoctor.agent
+    .post('/api/patients')
+    .set('x-csrf-token', aDoctor.csrf)
+    .send(samplePatient);
   aPatientId = res.body.id;
 });
 afterAll(() => app.close());
@@ -67,11 +77,17 @@ describe('row-level security backstop', () => {
   it('refuses writes into another tenant', async () => {
     await expect(
       withTenant(b.clinicId, actor, (t) =>
-        t.tx.insert(patients).values({ clinicId: a.clinicId, firstName: 'X', lastName: 'Y', mobile: '+639170000000' }),
+        t.tx
+          .insert(patients)
+          .values({ clinicId: a.clinicId, firstName: 'X', lastName: 'Y', mobile: '+639170000000' }),
       ),
     ).rejects.toThrow();
     const updated = await withTenant(b.clinicId, actor, (t) =>
-      t.tx.update(patients).set({ firstName: 'Hacked' }).where(eq(patients.id, aPatientId)).returning(),
+      t.tx
+        .update(patients)
+        .set({ firstName: 'Hacked' })
+        .where(eq(patients.id, aPatientId))
+        .returning(),
     );
     expect(updated).toEqual([]);
   });

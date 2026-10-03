@@ -49,11 +49,16 @@ export function requirePermission(permission: Permission) {
   };
 }
 
-const allowedOrigins = new Set([new URL(env.WEB_ORIGIN).origin, new URL(env.PUBLIC_APP_URL).origin]);
+const allowedOrigins = new Set([
+  new URL(env.WEB_ORIGIN).origin,
+  new URL(env.PUBLIC_APP_URL).origin,
+]);
 
 export default fp(async (app: FastifyInstance) => {
   app.decorateRequest('session', null);
-  app.decorateRequest('tenant', function <T>(this: FastifyRequest, fn: (scope: TenantScope) => Promise<T>) {
+  app.decorateRequest('tenant', function <
+    T,
+  >(this: FastifyRequest, fn: (scope: TenantScope) => Promise<T>) {
     const session = requireAuth(this);
     return withTenant(session.user.clinicId, { userId: session.user.id, ip: this.ip }, fn);
   });

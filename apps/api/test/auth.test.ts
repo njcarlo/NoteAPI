@@ -3,7 +3,14 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { users } from '../src/db/schema';
 import type { App } from '../src/app';
-import { createClinicFixture, owner, PASSWORD, signIn, startApp, type ClinicFixture } from './helpers';
+import {
+  createClinicFixture,
+  owner,
+  PASSWORD,
+  signIn,
+  startApp,
+  type ClinicFixture,
+} from './helpers';
 
 let app: App;
 let clinic: ClinicFixture;
@@ -20,7 +27,10 @@ describe('auth', () => {
       .post('/api/auth/login')
       .send({ email: clinic.emails.doctor.toUpperCase(), password: PASSWORD });
     expect(res.status).toBe(200);
-    expect(res.body.user).toMatchObject({ email: clinic.emails.doctor, roles: ['admin', 'doctor'] });
+    expect(res.body.user).toMatchObject({
+      email: clinic.emails.doctor,
+      roles: ['admin', 'doctor'],
+    });
     expect(res.body.csrfToken).toEqual(expect.any(String));
     const cookie = res.headers['set-cookie']?.[0] ?? '';
     expect(cookie).toMatch(/HttpOnly/);
@@ -58,7 +68,9 @@ describe('auth', () => {
   it('rotates the session on sign-in', async () => {
     const { agent } = await signIn(app, clinic.emails.secretary);
     const first = (await agent.get('/api/auth/me')).body.csrfToken;
-    await agent.post('/api/auth/login').send({ email: clinic.emails.secretary, password: PASSWORD });
+    await agent
+      .post('/api/auth/login')
+      .send({ email: clinic.emails.secretary, password: PASSWORD });
     const second = await agent.get('/api/auth/me');
     expect(second.status).toBe(200);
     expect(second.body.csrfToken).not.toBe(first);

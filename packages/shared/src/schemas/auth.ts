@@ -7,10 +7,7 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export const passwordSchema = z
-  .string()
-  .min(10, 'Use at least 10 characters')
-  .max(200);
+export const passwordSchema = z.string().min(10, 'Use at least 10 characters').max(200);
 
 export const sessionUserSchema = z.object({
   id: z.uuid(),

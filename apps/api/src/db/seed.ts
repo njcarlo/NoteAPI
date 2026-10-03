@@ -25,8 +25,26 @@ export const SEED_ACCOUNTS = {
 };
 
 const FIRST_NAMES = [
-  'Juan', 'Maria', 'Jose', 'Ana', 'Pedro', 'Rosa', 'Carlo', 'Liza', 'Ramon', 'Grace',
-  'Miguel', 'Joy', 'Paolo', 'Bea', 'Andres', 'Clarissa', 'Nico', 'Tess', 'Rafael', 'Camille',
+  'Juan',
+  'Maria',
+  'Jose',
+  'Ana',
+  'Pedro',
+  'Rosa',
+  'Carlo',
+  'Liza',
+  'Ramon',
+  'Grace',
+  'Miguel',
+  'Joy',
+  'Paolo',
+  'Bea',
+  'Andres',
+  'Clarissa',
+  'Nico',
+  'Tess',
+  'Rafael',
+  'Camille',
 ];
 const LAST_NAMES = ['Sampleton', 'Demoya', 'Testerio', 'Fakeda', 'Mockado'];
 
@@ -74,8 +92,22 @@ try {
   // Mon–Sat, 08:00–12:00 and 13:00–17:00, 15-minute slots.
   await db.insert(schedules).values(
     [1, 2, 3, 4, 5, 6].flatMap((dayOfWeek) => [
-      { clinicId, doctorId: doctor.id, dayOfWeek, startTime: '08:00', endTime: '12:00', slotMinutes: 15 },
-      { clinicId, doctorId: doctor.id, dayOfWeek, startTime: '13:00', endTime: '17:00', slotMinutes: 15 },
+      {
+        clinicId,
+        doctorId: doctor.id,
+        dayOfWeek,
+        startTime: '08:00',
+        endTime: '12:00',
+        slotMinutes: 15,
+      },
+      {
+        clinicId,
+        doctorId: doctor.id,
+        dayOfWeek,
+        startTime: '13:00',
+        endTime: '17:00',
+        slotMinutes: 15,
+      },
     ]),
   );
 
@@ -90,7 +122,12 @@ try {
     if (!found) throw new Error(`Seed drug missing: ${generic}`);
     return found;
   };
-  const item = (generic: string, strength: string, sig: string, quantity: string): RxFavoriteItem => {
+  const item = (
+    generic: string,
+    strength: string,
+    sig: string,
+    quantity: string,
+  ): RxFavoriteItem => {
     const d = drug(generic, strength);
     return {
       drugId: d.id,
@@ -118,7 +155,12 @@ try {
   await db.insert(rxFavorites).values([
     { clinicId, doctorId: doctor.id, name: 'URI / common cold', items: favorites.uri },
     { clinicId, doctorId: doctor.id, name: 'Uncomplicated UTI', items: favorites.uti },
-    { clinicId, doctorId: doctor.id, name: 'Hypertension maintenance', items: favorites.hypertension },
+    {
+      clinicId,
+      doctorId: doctor.id,
+      name: 'Hypertension maintenance',
+      items: favorites.hypertension,
+    },
   ]);
 
   const patientRows = await db
@@ -184,7 +226,12 @@ try {
   const past = [
     { patient: 0, daysAgo: 30, assessment: 'Essential hypertension', rx: favorites.hypertension },
     { patient: 2, daysAgo: 21, assessment: 'Acute upper respiratory infection', rx: favorites.uri },
-    { patient: 3, daysAgo: 14, assessment: 'Uncomplicated urinary tract infection', rx: favorites.uti },
+    {
+      patient: 3,
+      daysAgo: 14,
+      assessment: 'Uncomplicated urinary tract infection',
+      rx: favorites.uti,
+    },
     { patient: 5, daysAgo: 7, assessment: 'Essential hypertension', rx: favorites.hypertension },
     { patient: 6, daysAgo: 3, assessment: 'Acute upper respiratory infection', rx: favorites.uri },
   ];
@@ -207,8 +254,18 @@ try {
 
   const finished = [
     ...past.map((p, i) => ({ ...p, appointment: pastRows[i] as (typeof pastRows)[number] })),
-    { patient: 0, assessment: 'Essential hypertension', rx: favorites.hypertension, appointment: todayRows[0] as (typeof todayRows)[number] },
-    { patient: 1, assessment: 'Acute upper respiratory infection', rx: favorites.uri, appointment: todayRows[1] as (typeof todayRows)[number] },
+    {
+      patient: 0,
+      assessment: 'Essential hypertension',
+      rx: favorites.hypertension,
+      appointment: todayRows[0] as (typeof todayRows)[number],
+    },
+    {
+      patient: 1,
+      assessment: 'Acute upper respiratory infection',
+      rx: favorites.uri,
+      appointment: todayRows[1] as (typeof todayRows)[number],
+    },
   ];
   for (const f of finished) {
     const finishedAt = new Date(f.appointment.startAt.getTime() + 10 * 60_000);
@@ -272,7 +329,9 @@ try {
 
   console.log(`Seeded "${clinic.name}" (/c/${clinic.slug})`);
   console.log(`  Doctor/admin: ${SEED_ACCOUNTS.doctor.email} / ${SEED_ACCOUNTS.doctor.password}`);
-  console.log(`  Secretary:    ${SEED_ACCOUNTS.secretary.email} / ${SEED_ACCOUNTS.secretary.password}`);
+  console.log(
+    `  Secretary:    ${SEED_ACCOUNTS.secretary.email} / ${SEED_ACCOUNTS.secretary.password}`,
+  );
 } finally {
   await client.end();
 }

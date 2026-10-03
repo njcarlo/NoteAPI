@@ -1,10 +1,5 @@
 import { count, desc, eq, ilike, or, sql } from 'drizzle-orm';
-import {
-  normalizePhMobile,
-  type Paginated,
-  type Patient,
-  type PatientData,
-} from '@clinic/shared';
+import { normalizePhMobile, type Paginated, type Patient, type PatientData } from '@clinic/shared';
 import { patients } from '../../db/schema';
 import type { TenantScope } from '../../db/tenant';
 import { notFound } from '../../lib/errors';
@@ -68,7 +63,10 @@ export async function listPatients(
 }
 
 export async function getPatient(t: TenantScope, id: string): Promise<Patient> {
-  const [row] = await t.tx.select().from(patients).where(t.where(patients, eq(patients.id, id)));
+  const [row] = await t.tx
+    .select()
+    .from(patients)
+    .where(t.where(patients, eq(patients.id, id)));
   if (!row) throw notFound('Patient');
   await t.audit({ action: 'patient.view', entityType: 'patient', entityId: id });
   return toPatient(row);

@@ -34,7 +34,10 @@ export const patientRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.post(
     '/',
-    { preHandler: canWrite, schema: { body: patientInputSchema, response: { 201: patientSchema } } },
+    {
+      preHandler: canWrite,
+      schema: { body: patientInputSchema, response: { 201: patientSchema } },
+    },
     async (request, reply) => {
       const patient = await request.tenant((t) => createPatient(t, request.body));
       return reply.status(201).send(patient);

@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { App } from '../src/app';
-import { createClinicFixture, samplePatient, signIn, startApp, type ClinicFixture } from './helpers';
+import {
+  createClinicFixture,
+  samplePatient,
+  signIn,
+  startApp,
+  type ClinicFixture,
+} from './helpers';
 
 let app: App;
 let clinic: ClinicFixture;
@@ -22,7 +28,9 @@ describe('role-based access', () => {
   it('lets secretaries manage patients but not staff or audit logs', async () => {
     const { agent, csrf } = await signIn(app, clinic.emails.secretary);
     expect((await agent.get('/api/patients')).status).toBe(200);
-    expect((await agent.post('/api/patients').set('x-csrf-token', csrf).send(samplePatient)).status).toBe(201);
+    expect(
+      (await agent.post('/api/patients').set('x-csrf-token', csrf).send(samplePatient)).status,
+    ).toBe(201);
     expect((await agent.get('/api/staff')).status).toBe(403);
     expect((await agent.get('/api/audit-logs')).status).toBe(403);
   });

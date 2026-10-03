@@ -17,7 +17,13 @@ export const PERMISSIONS = [
 export type Permission = (typeof PERMISSIONS)[number];
 
 const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  secretary: ['patients:read', 'patients:write', 'appointments:manage', 'queue:manage', 'vitals:write'],
+  secretary: [
+    'patients:read',
+    'patients:write',
+    'appointments:manage',
+    'queue:manage',
+    'vitals:write',
+  ],
   doctor: [
     'patients:read',
     'patients:write',

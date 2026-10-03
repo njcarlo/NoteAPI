@@ -1,7 +1,12 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { loginSchema, sessionResponseSchema } from '@clinic/shared';
 import { env } from '../../config/env';
-import { clearSessionCookie, requireAuth, SESSION_COOKIE, setSessionCookie } from '../../plugins/auth';
+import {
+  clearSessionCookie,
+  requireAuth,
+  SESSION_COOKIE,
+  setSessionCookie,
+} from '../../plugins/auth';
 import { login, logout } from './service';
 
 export const authRoutes: FastifyPluginAsyncZod = async (app) => {

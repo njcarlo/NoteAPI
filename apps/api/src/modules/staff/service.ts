@@ -25,7 +25,11 @@ const toStaff = (row: StaffRow): Staff => ({
 });
 
 export async function listStaff(t: TenantScope): Promise<Staff[]> {
-  const rows = await t.tx.select(columns).from(users).where(t.where(users)).orderBy(asc(users.name));
+  const rows = await t.tx
+    .select(columns)
+    .from(users)
+    .where(t.where(users))
+    .orderBy(asc(users.name));
   return rows.map(toStaff);
 }
 
@@ -62,7 +66,10 @@ export async function updateStaff(
   id: string,
   input: StaffUpdateInput,
 ): Promise<Staff> {
-  if (id === actorId && (input.isActive === false || (input.roles && !input.roles.includes('admin')))) {
+  if (
+    id === actorId &&
+    (input.isActive === false || (input.roles && !input.roles.includes('admin')))
+  ) {
     throw badRequest('You cannot deactivate yourself or remove your own admin role');
   }
   const [row] = await t.tx

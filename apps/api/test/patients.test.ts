@@ -16,7 +16,10 @@ afterAll(() => app.close());
 
 describe('patients', () => {
   it('normalizes PH mobile numbers to E.164', async () => {
-    const res = await secretary.agent.post('/api/patients').set('x-csrf-token', secretary.csrf).send(samplePatient);
+    const res = await secretary.agent
+      .post('/api/patients')
+      .set('x-csrf-token', secretary.csrf)
+      .send(samplePatient);
     expect(res.status).toBe(201);
     expect(res.body.mobile).toBe('+639175551234');
     expect(res.body.smsOptIn).toBe(true);
@@ -55,15 +58,22 @@ describe('patients', () => {
   });
 
   it('audits views and edits by field name only', async () => {
-    const created = await secretary.agent.post('/api/patients').set('x-csrf-token', secretary.csrf).send(samplePatient);
+    const created = await secretary.agent
+      .post('/api/patients')
+      .set('x-csrf-token', secretary.csrf)
+      .send(samplePatient);
     await secretary.agent.get(`/api/patients/${created.body.id}`);
     await secretary.agent
       .patch(`/api/patients/${created.body.id}`)
       .set('x-csrf-token', secretary.csrf)
       .send({ conditions: 'Asthma' });
-    const res = await admin.agent.get(`/api/audit-logs?entityType=patient&entityId=${created.body.id}`);
+    const res = await admin.agent.get(
+      `/api/audit-logs?entityType=patient&entityId=${created.body.id}`,
+    );
     const actions = res.body.items.map((i: { action: string }) => i.action);
-    expect(actions).toEqual(expect.arrayContaining(['patient.create', 'patient.view', 'patient.update']));
+    expect(actions).toEqual(
+      expect.arrayContaining(['patient.create', 'patient.view', 'patient.update']),
+    );
     expect(JSON.stringify(res.body)).not.toContain('Asthma');
   });
 });

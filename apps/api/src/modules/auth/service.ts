@@ -132,7 +132,10 @@ async function loadSessionUser(
 }
 
 /** Resolves a session cookie; slides the idle expiry at most once a minute. */
-export async function resolveSession(token: string, ip: string | null): Promise<ActiveSession | null> {
+export async function resolveSession(
+  token: string,
+  ip: string | null,
+): Promise<ActiveSession | null> {
   const sessionId = sha256(token);
   const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
   if (!row || row.expiresAt <= new Date()) return null;
@@ -161,6 +164,9 @@ export async function revokeUserSessions(userId: string, exceptSessionId?: strin
   await db
     .delete(sessions)
     .where(
-      and(eq(sessions.userId, userId), exceptSessionId ? ne(sessions.id, exceptSessionId) : undefined),
+      and(
+        eq(sessions.userId, userId),
+        exceptSessionId ? ne(sessions.id, exceptSessionId) : undefined,
+      ),
     );
 }

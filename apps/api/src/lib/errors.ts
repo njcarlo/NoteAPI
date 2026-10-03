@@ -12,7 +12,8 @@ export class AppError extends Error {
   }
 }
 
-export const notFound = (what = 'Record') => new AppError(404, ERROR_CODES.NOT_FOUND, `${what} not found`);
+export const notFound = (what = 'Record') =>
+  new AppError(404, ERROR_CODES.NOT_FOUND, `${what} not found`);
 export const forbidden = () =>
   new AppError(403, ERROR_CODES.FORBIDDEN, 'You do not have access to this resource');
 export const unauthenticated = () =>

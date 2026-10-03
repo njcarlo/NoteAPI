@@ -1,4 +1,14 @@
-import { boolean, date, index, integer, pgTable, smallint, text, time, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  date,
+  index,
+  integer,
+  pgTable,
+  smallint,
+  text,
+  time,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { id, timestamps } from './_shared';
 import { clinics } from './clinics';
 import { users } from './users';

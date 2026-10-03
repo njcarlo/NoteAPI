@@ -4,13 +4,18 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', 'apps/api/drizzle/**', '**/playwright-report/**'] },
+  {
+    ignores: ['**/dist/**', '**/node_modules/**', 'apps/api/drizzle/**', '**/playwright-report/**'],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
     languageOptions: { globals: { ...globals.node } },
     rules: {
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/consistent-type-imports': 'error',
     },
   },

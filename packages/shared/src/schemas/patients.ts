@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { SEXES } from '../constants';
-import { isoDateSchema, optionalEmail, optionalText, paginationQuery, phMobileSchema } from './common';
+import {
+  isoDateSchema,
+  optionalEmail,
+  optionalText,
+  paginationQuery,
+  phMobileSchema,
+} from './common';
 
 const patientFields = z.object({
   firstName: z.string().trim().min(1, 'Required').max(100),

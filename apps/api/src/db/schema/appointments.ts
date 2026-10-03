@@ -30,5 +30,9 @@ export const appointments = pgTable(
     arrivedAt: timestamp({ withTimezone: true }),
     ...timestamps,
   },
-  (t) => [index().on(t.clinicId, t.startAt), index().on(t.clinicId, t.doctorId, t.startAt), index().on(t.patientId)],
+  (t) => [
+    index().on(t.clinicId, t.startAt),
+    index().on(t.clinicId, t.doctorId, t.startAt),
+    index().on(t.patientId),
+  ],
 );

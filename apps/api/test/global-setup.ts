@@ -3,7 +3,9 @@ import { createDb } from '../src/db/connect';
 import { runMigrations } from '../src/db/migrate';
 
 export default async function setup() {
-  const url = process.env.TEST_MIGRATION_DATABASE_URL ?? 'postgres://clinic:clinic@localhost:5432/clinic_test';
+  const url =
+    process.env.TEST_MIGRATION_DATABASE_URL ??
+    'postgres://clinic:clinic@localhost:5432/clinic_test';
   await runMigrations(url);
   const { db, client } = createDb(url, 1);
   await db.execute(sql`

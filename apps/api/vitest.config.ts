@@ -14,9 +14,11 @@ export default defineConfig({
       NODE_ENV: 'test',
       LOG_LEVEL: 'silent',
       DATABASE_URL:
-        process.env.TEST_DATABASE_URL ?? 'postgres://clinic_app:clinic_app@localhost:5432/clinic_test',
+        process.env.TEST_DATABASE_URL ??
+        'postgres://clinic_app:clinic_app@localhost:5432/clinic_test',
       MIGRATION_DATABASE_URL:
-        process.env.TEST_MIGRATION_DATABASE_URL ?? 'postgres://clinic:clinic@localhost:5432/clinic_test',
+        process.env.TEST_MIGRATION_DATABASE_URL ??
+        'postgres://clinic:clinic@localhost:5432/clinic_test',
       LOGIN_RATE_LIMIT_PER_MINUTE: '1000',
       RATE_LIMIT_USE_REDIS: 'false',
     },
