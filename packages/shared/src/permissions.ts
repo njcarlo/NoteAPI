@@ -1,4 +1,5 @@
 import type { Role } from './constants';
+import type { SessionResponse } from './schemas/auth';
 
 export const PERMISSIONS = [
   'patients:read',
@@ -44,4 +45,12 @@ export function permissionsFor(roles: readonly Role[]): Set<Permission> {
 
 export function hasPermission(roles: readonly Role[], permission: Permission): boolean {
   return roles.some((role) => ROLE_PERMISSIONS[role].includes(permission));
+}
+
+/** Permission check against the clinic the user is currently working in. */
+export function sessionCan(
+  session: Pick<SessionResponse, 'activeClinic'> | null,
+  permission: Permission,
+) {
+  return Boolean(session?.activeClinic && hasPermission(session.activeClinic.roles, permission));
 }

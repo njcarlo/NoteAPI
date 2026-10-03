@@ -5,7 +5,7 @@ export default defineConfig({
     server: 'src/server.ts',
     'db/migrate': 'src/db/migrate.ts',
     'db/seed': 'src/db/seed.ts',
-    'scripts/create-clinic': 'src/scripts/create-clinic.ts',
+    'scripts/create-platform-admin': 'src/scripts/create-platform-admin.ts',
   },
   format: ['esm'],
   target: 'node22',

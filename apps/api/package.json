@@ -12,7 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts",
     "db:seed": "tsx --env-file-if-exists=../../.env src/db/seed.ts",
-    "clinic:create": "tsx --env-file-if-exists=../../.env src/scripts/create-clinic.ts"
+    "platform:admin": "tsx --env-file-if-exists=../../.env src/scripts/create-platform-admin.ts"
   },
   "dependencies": {
     "@clinic/shared": "workspace:*",
@@ -26,7 +26,6 @@
     "fastify": "^5.12.5",
     "fastify-plugin": "^5.1.0",
     "fastify-type-provider-zod": "^7.0.0",
-    "ioredis": "^5.11.1",
     "postgres": "^3.4.9",
     "zod": "^4.3.6"
   },

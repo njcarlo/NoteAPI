@@ -1,6 +1,12 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { idParams, staffCreateSchema, staffSchema, staffUpdateSchema } from '@clinic/shared';
+import {
+  idParams,
+  staffCreateResponseSchema,
+  staffCreateSchema,
+  staffSchema,
+  staffUpdateSchema,
+} from '@clinic/shared';
 import { requireAuth, requirePermission } from '../../plugins/auth';
 import { createStaff, listStaff, updateStaff } from './service';
 
@@ -13,7 +19,7 @@ export const staffRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.post(
     '/',
-    { schema: { body: staffCreateSchema, response: { 201: staffSchema } } },
+    { schema: { body: staffCreateSchema, response: { 201: staffCreateResponseSchema } } },
     async (request, reply) => {
       const staff = await request.tenant((t) => createStaff(t, request.body));
       return reply.status(201).send(staff);

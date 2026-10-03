@@ -12,7 +12,6 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   DATABASE_URL: z.url(),
   MIGRATION_DATABASE_URL: z.url(),
-  REDIS_URL: z.url().default('redis://localhost:6379'),
   WEB_ORIGIN: z.url().default('http://localhost:5173'),
   PUBLIC_APP_URL: z.url().default('http://localhost:5173'),
   COOKIE_SECURE: booleanString,
@@ -20,7 +19,6 @@ const envSchema = z.object({
   LOGIN_MAX_FAILURES: z.coerce.number().int().positive().default(5),
   LOGIN_LOCK_MINUTES: z.coerce.number().int().positive().default(15),
   LOGIN_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
-  RATE_LIMIT_USE_REDIS: booleanString,
   TRUST_PROXY: booleanString,
 });
 

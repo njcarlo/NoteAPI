@@ -1,7 +1,9 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import {
-  hasPermission,
+  sessionCan,
+  type ActiveClinic,
+  type ClinicMembership,
   type Permission,
   type SessionResponse,
   type SessionUser,
@@ -10,8 +12,17 @@ import { api, ApiError, setCsrfToken, setUnauthenticatedHandler } from '@/lib/ap
 
 export const sessionQueryKey = ['session'] as const;
 
+/** Replaces the session and drops every cached clinic query, so no data crosses clinics. */
+export function applySession(queryClient: QueryClient, session: SessionResponse | null) {
+  setCsrfToken(session?.csrfToken ?? null);
+  queryClient.setQueryData(sessionQueryKey, session);
+  queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== sessionQueryKey[0] });
+}
+
 interface SessionContextValue {
   user: SessionUser | null;
+  clinics: ClinicMembership[];
+  activeClinic: ActiveClinic | null;
   isLoading: boolean;
   can: (permission: Permission) => boolean;
 }
@@ -35,19 +46,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => setCsrfToken(query.data?.csrfToken ?? null), [query.data]);
+  useEffect(() => setUnauthenticatedHandler(() => applySession(queryClient, null)), [queryClient]);
 
-  useEffect(() => {
-    setUnauthenticatedHandler(() => {
-      queryClient.setQueryData(sessionQueryKey, null);
-      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== sessionQueryKey[0] });
-    });
-  }, [queryClient]);
-
-  const user = query.data?.user ?? null;
+  const session = query.data ?? null;
   const value: SessionContextValue = {
-    user,
+    user: session?.user ?? null,
+    clinics: session?.clinics ?? [],
+    activeClinic: session?.activeClinic ?? null,
     isLoading: query.isLoading,
-    can: (permission) => (user ? hasPermission(user.roles, permission) : false),
+    can: (permission) => sessionCan(session, permission),
   };
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
@@ -56,4 +63,13 @@ export function useSession(): SessionContextValue {
   const value = useContext(SessionContext);
   if (!value) throw new Error('useSession must be used inside SessionProvider');
   return value;
+}
+
+export function useSelectClinic() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (clinicId: string) =>
+      api<SessionResponse>('/auth/active-clinic', { method: 'POST', body: { clinicId } }),
+    onSuccess: (session) => applySession(queryClient, session),
+  });
 }

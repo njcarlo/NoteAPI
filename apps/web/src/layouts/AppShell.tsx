@@ -1,24 +1,26 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
-import { NavLink, Navigate, Outlet, useLocation } from 'react-router';
+import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { sessionQueryKey, useSession } from '@/auth/session';
+import { applySession, useSelectClinic, useSession } from '@/auth/session';
 import { t } from '@/i18n';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { navFor } from './nav';
+import { homePathFor, navFor } from './nav';
+
+const CLINIC_FREE_PATHS = ['/select-clinic', '/platform'];
 
 export function AppShell() {
-  const { user, isLoading } = useSession();
+  const { user, clinics, activeClinic, isLoading } = useSession();
   const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const selectClinic = useSelectClinic();
   const logout = useMutation({
     mutationFn: () => api<void>('/auth/logout', { method: 'POST' }),
-    onSettled: () => {
-      queryClient.setQueryData(sessionQueryKey, null);
-      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== sessionQueryKey[0] });
-    },
+    onSettled: () => applySession(queryClient, null),
   });
 
   if (isLoading) {
@@ -29,18 +31,43 @@ export function AppShell() {
     );
   }
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (!activeClinic && !CLINIC_FREE_PATHS.some((p) => location.pathname.startsWith(p))) {
+    return <Navigate to={homePathFor({ user, clinics, activeClinic })} replace />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="flex shrink-0 flex-col border-b border-border bg-card md:w-60 md:border-r md:border-b-0">
-        <div className="px-5 py-4">
-          <p className="text-sm font-semibold">{user.clinicName}</p>
+        <div className="space-y-2 px-5 py-4">
+          {clinics.length > 1 ? (
+            <Select
+              aria-label={t.clinics.switch}
+              className="h-9 font-semibold"
+              value={activeClinic?.id ?? ''}
+              disabled={selectClinic.isPending}
+              onChange={(e) =>
+                selectClinic.mutate(e.target.value, {
+                  onSuccess: (session) => navigate(homePathFor(session)),
+                })
+              }
+            >
+              {!activeClinic && <option value="">{t.clinics.choose}</option>}
+              {clinics.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <p className="text-sm font-semibold">{activeClinic?.name ?? t.nav.platform}</p>
+          )}
           <p className="text-xs text-muted-foreground">
-            {user.name} · {user.roles.map((r) => t.roles[r]).join(', ')}
+            {user.name}
+            {activeClinic && ` · ${activeClinic.roles.map((r) => t.roles[r]).join(', ')}`}
           </p>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:overflow-visible">
-          {navFor(user).map(({ to, label, icon: Icon }) => (
+          {navFor(user, activeClinic).map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}

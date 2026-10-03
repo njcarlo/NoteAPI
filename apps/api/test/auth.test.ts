@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { users } from '../src/db/schema';
+import { memberships } from '../src/db/schema';
 import type { App } from '../src/app';
 import {
   createClinicFixture,
@@ -27,8 +27,9 @@ describe('auth', () => {
       .post('/api/auth/login')
       .send({ email: clinic.emails.doctor.toUpperCase(), password: PASSWORD });
     expect(res.status).toBe(200);
-    expect(res.body.user).toMatchObject({
-      email: clinic.emails.doctor,
+    expect(res.body.user).toMatchObject({ email: clinic.emails.doctor, isPlatformAdmin: false });
+    expect(res.body.activeClinic).toMatchObject({
+      id: clinic.clinicId,
       roles: ['admin', 'doctor'],
     });
     expect(res.body.csrfToken).toEqual(expect.any(String));
@@ -102,7 +103,7 @@ describe('auth', () => {
     expect(me.body.error.code).toBe('UNAUTHENTICATED');
   });
 
-  it('rejects deactivated users and drops their sessions', async () => {
+  it('removes access immediately when a membership is deactivated', async () => {
     const target = await createClinicFixture('inactive');
     const { agent } = await signIn(app, target.emails.secretary);
     const admin = await signIn(app, target.emails.doctor);
@@ -115,8 +116,11 @@ describe('auth', () => {
     const login = await request(app.server)
       .post('/api/auth/login')
       .send({ email: target.emails.secretary, password: PASSWORD });
-    expect(login.status).toBe(401);
-    const [row] = await owner.db.select().from(users).where(eq(users.id, target.userIds.secretary));
+    expect(login.status).toBe(403);
+    const [row] = await owner.db
+      .select()
+      .from(memberships)
+      .where(eq(memberships.userId, target.userIds.secretary));
     expect(row?.isActive).toBe(false);
   });
 });

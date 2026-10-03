@@ -1,5 +1,5 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { loginSchema, sessionResponseSchema } from '@clinic/shared';
+import { loginSchema, selectClinicSchema, sessionResponseSchema } from '@clinic/shared';
 import { env } from '../../config/env';
 import {
   clearSessionCookie,
@@ -7,7 +7,14 @@ import {
   SESSION_COOKIE,
   setSessionCookie,
 } from '../../plugins/auth';
-import { login, logout } from './service';
+import { login, logout, selectClinic, type ActiveSession } from './service';
+
+const toResponse = ({ user, clinics, activeClinic, csrfToken }: ActiveSession) => ({
+  user,
+  clinics,
+  activeClinic,
+  csrfToken,
+});
 
 export const authRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
@@ -26,22 +33,25 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
         previousToken: request.cookies[SESSION_COOKIE],
       });
       setSessionCookie(reply, token);
-      return { user: session.user, csrfToken: session.csrfToken };
+      return toResponse(session);
     },
   );
 
   app.post('/logout', async (request, reply) => {
     const session = requireAuth(request);
     await logout(session.id);
-    await request.tenant((t) =>
-      t.audit({ action: 'auth.logout', entityType: 'user', entityId: session.user.id }),
-    );
     clearSessionCookie(reply);
     return reply.status(204).send();
   });
 
-  app.get('/me', { schema: { response: { 200: sessionResponseSchema } } }, async (request) => {
-    const session = requireAuth(request);
-    return { user: session.user, csrfToken: session.csrfToken };
-  });
+  app.get('/me', { schema: { response: { 200: sessionResponseSchema } } }, async (request) =>
+    toResponse(requireAuth(request)),
+  );
+
+  app.post(
+    '/active-clinic',
+    { schema: { body: selectClinicSchema, response: { 200: sessionResponseSchema } } },
+    async (request) =>
+      toResponse(await selectClinic(requireAuth(request), request.body.clinicId, request.ip)),
+  );
 };

@@ -8,6 +8,7 @@ import { AuditPage } from '@/features/audit/AuditPage';
 import { PatientDetailPage } from '@/features/patients/PatientDetailPage';
 import { PatientFormPage } from '@/features/patients/PatientFormPage';
 import { PatientsPage } from '@/features/patients/PatientsPage';
+import { PlatformPage } from '@/features/platform/PlatformPage';
 import { StaffPage } from '@/features/staff/StaffPage';
 import { t } from '@/i18n';
 import { AppShell } from '@/layouts/AppShell';
@@ -16,6 +17,7 @@ import { ComingSoonPage } from '@/pages/ComingSoonPage';
 import { HomeRedirect } from '@/pages/HomeRedirect';
 import { LoginPage } from '@/pages/LoginPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { SelectClinicPage } from '@/pages/SelectClinicPage';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -34,6 +36,15 @@ const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <HomeRedirect /> },
+      { path: 'select-clinic', element: <SelectClinicPage /> },
+      {
+        path: 'platform',
+        element: (
+          <RequireAccess platform>
+            <PlatformPage />
+          </RequireAccess>
+        ),
+      },
       {
         path: 'today',
         element: (

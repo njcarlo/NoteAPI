@@ -8,6 +8,7 @@ export * from './schemas/auth';
 export * from './schemas/patients';
 export * from './schemas/staff';
 export * from './schemas/audit';
+export * from './schemas/platform';
 
 export interface Paginated<T> {
   items: T[];

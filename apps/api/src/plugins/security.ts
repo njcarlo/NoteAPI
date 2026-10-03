@@ -3,7 +3,6 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
-import { Redis } from 'ioredis';
 import { env } from '../config/env';
 
 export async function registerSecurity(app: FastifyInstance): Promise<void> {
@@ -19,17 +18,8 @@ export async function registerSecurity(app: FastifyInstance): Promise<void> {
   });
   await app.register(cookie);
 
-  const redis = env.RATE_LIMIT_USE_REDIS
-    ? new Redis(env.REDIS_URL, { maxRetriesPerRequest: 1, enableOfflineQueue: false })
-    : undefined;
-  if (redis) app.addHook('onClose', async () => void redis.disconnect());
-
-  await app.register(rateLimit, {
-    global: true,
-    max: 300,
-    timeWindow: '1 minute',
-    ...(redis ? { redis, nameSpace: 'rl:' } : {}),
-  });
+  // Counters are per API instance. With N instances the effective limit is N× these numbers.
+  await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
 
   app.addHook('onSend', async (_request, reply) => {
     reply.header('cache-control', 'no-store');

@@ -16,7 +16,7 @@
     "db:generate": "pnpm --filter @clinic/api db:generate",
     "db:migrate": "pnpm --filter @clinic/api db:migrate",
     "db:seed": "pnpm --filter @clinic/api db:seed",
-    "clinic:create": "pnpm --filter @clinic/api clinic:create"
+    "platform:admin": "pnpm --filter @clinic/api platform:admin"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

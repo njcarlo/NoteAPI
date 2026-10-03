@@ -1,10 +1,9 @@
 import { sql } from 'drizzle-orm';
 import { CLINIC_TIMEZONE, todayIn, type AppointmentStatus, type Sex } from '@clinic/shared';
-import { hashPassword } from '../lib/password';
 import { referenceCode } from '../lib/reference';
 import { addDays, zonedToUtc } from '../lib/time';
 import { createDb } from './connect';
-import { provisionClinic } from './provision';
+import { provisionClinic, upsertPerson } from './provision';
 import {
   appointments,
   drugs,
@@ -13,7 +12,6 @@ import {
   prescriptions,
   rxFavorites,
   schedules,
-  users,
   visits,
   type RxFavoriteItem,
 } from './schema';
@@ -21,7 +19,10 @@ import { DRUGS } from './seed-data/drugs';
 
 export const SEED_ACCOUNTS = {
   doctor: { email: 'doctor@sample.clinic', password: 'DemoDoctor#2026' },
+  doctor2: { email: 'doctor2@sample.clinic', password: 'DemoDoctor#2026' },
   secretary: { email: 'secretary@sample.clinic', password: 'DemoSecretary#2026' },
+  imusSecretary: { email: 'imus.secretary@sample.clinic', password: 'DemoSecretary#2026' },
+  platform: { email: 'platform@sample.clinic', password: 'DemoPlatform#2026' },
 };
 
 const FIRST_NAMES = [
@@ -59,57 +60,129 @@ try {
   await db.execute(sql`
     truncate table audit_logs, notification_logs, notification_templates, rx_share_tokens,
       prescription_items, prescriptions, rx_favorites, visit_amendments, visits, appointments,
-      patients, schedule_exceptions, schedules, doctor_profiles, sessions, users, clinics, drugs
+      patients, schedule_exceptions, schedules, secretary_assignments, doctor_profiles, sessions,
+      memberships, users, clinics, drugs
     restart identity cascade
   `);
 
-  const { clinic, user: doctor } = await provisionClinic(db, {
-    clinic: {
+  await upsertPerson(db, {
+    name: 'Platform Demo Admin',
+    email: SEED_ACCOUNTS.platform.email,
+    password: SEED_ACCOUNTS.platform.password,
+    isPlatformAdmin: true,
+  });
+
+  const drSantos = {
+    name: 'Maria Demo Santos, MD',
+    email: SEED_ACCOUNTS.doctor.email,
+    password: SEED_ACCOUNTS.doctor.password,
+  };
+  const {
+    clinic,
+    userIds: [doctorId, doctor2Id],
+  } = await provisionClinic(
+    db,
+    {
       slug: 'sample-family-clinic',
       name: 'Sample Family Clinic',
       address: 'Unit 1, Sample Bldg., Aguinaldo Hwy., Salitran, Dasmariñas, Cavite',
       contactNumber: '+639170000000',
       email: 'hello@sample.clinic',
     },
-    admin: {
-      name: 'Maria Demo Santos, MD',
-      email: SEED_ACCOUNTS.doctor.email,
-      password: SEED_ACCOUNTS.doctor.password,
-      roles: ['admin', 'doctor'],
-      doctor: { specialty: 'Family Medicine', prcNo: '0000001', ptrNo: 'DEMO-0000001' },
-    },
-  });
+    [
+      {
+        ...drSantos,
+        roles: ['admin', 'doctor'],
+        doctor: { specialty: 'Family Medicine', prcNo: '0000001', ptrNo: 'DEMO-DAS-0000001' },
+      },
+      {
+        name: 'Jose Demo Cruz, MD',
+        email: SEED_ACCOUNTS.doctor2.email,
+        password: SEED_ACCOUNTS.doctor2.password,
+        roles: ['doctor'],
+        doctor: { specialty: 'Pediatrics', prcNo: '0000002', ptrNo: 'DEMO-DAS-0000002' },
+      },
+      {
+        name: 'Ana Demo Reyes',
+        email: SEED_ACCOUNTS.secretary.email,
+        password: SEED_ACCOUNTS.secretary.password,
+        roles: ['secretary'],
+      },
+    ],
+  );
+  const doctor = { id: doctorId as string };
   const clinicId = clinic.id;
 
-  await db.insert(users).values({
-    clinicId,
-    name: 'Ana Demo Reyes',
-    email: SEED_ACCOUNTS.secretary.email,
-    roles: ['secretary'],
-    passwordHash: await hashPassword(SEED_ACCOUNTS.secretary.password),
-  });
-
-  // Mon–Sat, 08:00–12:00 and 13:00–17:00, 15-minute slots.
-  await db.insert(schedules).values(
-    [1, 2, 3, 4, 5, 6].flatMap((dayOfWeek) => [
+  // Dr. Santos also holds clinic hours in Imus, as a doctor only (another admin runs it).
+  const { clinic: imus } = await provisionClinic(
+    db,
+    {
+      slug: 'sample-imus-clinic',
+      name: 'Sample Imus Clinic',
+      address: 'Sample Medical Arts Bldg., Nueno Ave., Imus, Cavite',
+      contactNumber: '+639170000099',
+    },
+    [
       {
-        clinicId,
-        doctorId: doctor.id,
-        dayOfWeek,
-        startTime: '08:00',
-        endTime: '12:00',
-        slotMinutes: 15,
+        ...drSantos,
+        roles: ['doctor'],
+        doctor: { specialty: 'Family Medicine', prcNo: '0000001', ptrNo: 'DEMO-IMS-0000001' },
       },
       {
-        clinicId,
-        doctorId: doctor.id,
-        dayOfWeek,
-        startTime: '13:00',
-        endTime: '17:00',
-        slotMinutes: 15,
+        name: 'Liza Demo Imus',
+        email: SEED_ACCOUNTS.imusSecretary.email,
+        password: SEED_ACCOUNTS.imusSecretary.password,
+        roles: ['admin', 'secretary'],
       },
-    ]),
+    ],
   );
+  await db.insert(schedules).values(
+    [2, 4].map((dayOfWeek) => ({
+      clinicId: imus.id,
+      doctorId: doctor.id,
+      dayOfWeek,
+      startTime: '14:00',
+      endTime: '18:00',
+      slotMinutes: 15,
+    })),
+  );
+  await db.insert(patients).values(
+    ['Imelda', 'Ruben', 'Celia'].map((firstName, i) => ({
+      clinicId: imus.id,
+      firstName,
+      middleName: 'Demo',
+      lastName: 'Imusano',
+      birthdate: `198${i}-0${i + 1}-1${i}`,
+      sex: (i % 2 === 0 ? 'female' : 'male') as Sex,
+      mobile: `+63917000${String(i + 90).padStart(4, '0')}`,
+      privacyConsentAt: new Date(),
+    })),
+  );
+
+  // Dr. Santos: Mon–Sat, 08:00–12:00 and 13:00–17:00. Dr. Cruz: Mon/Wed/Fri afternoons.
+  const block = (
+    doctorId: string,
+    dayOfWeek: number,
+    startTime: string,
+    endTime: string,
+    slotMinutes: number,
+  ) => ({
+    clinicId,
+    doctorId,
+    dayOfWeek,
+    startTime,
+    endTime,
+    slotMinutes,
+  });
+  await db
+    .insert(schedules)
+    .values([
+      ...[1, 2, 3, 4, 5, 6].flatMap((day) => [
+        block(doctor.id, day, '08:00', '12:00', 15),
+        block(doctor.id, day, '13:00', '17:00', 15),
+      ]),
+      ...[1, 3, 5].map((day) => block(doctor2Id as string, day, '13:00', '17:00', 20)),
+    ]);
 
   const drugRows = await db
     .insert(drugs)
@@ -327,11 +400,10 @@ try {
     });
   }
 
-  console.log(`Seeded "${clinic.name}" (/c/${clinic.slug})`);
-  console.log(`  Doctor/admin: ${SEED_ACCOUNTS.doctor.email} / ${SEED_ACCOUNTS.doctor.password}`);
-  console.log(
-    `  Secretary:    ${SEED_ACCOUNTS.secretary.email} / ${SEED_ACCOUNTS.secretary.password}`,
-  );
+  console.log(`Seeded "${clinic.name}" and "${imus.name}". Accounts:`);
+  for (const [who, account] of Object.entries(SEED_ACCOUNTS)) {
+    console.log(`  ${who.padEnd(14)} ${account.email} / ${account.password}`);
+  }
 } finally {
   await client.end();
 }

@@ -1,6 +1,9 @@
 export const ROLES = ['admin', 'doctor', 'secretary'] as const;
 export type Role = (typeof ROLES)[number];
 
+export const CLINIC_STATUSES = ['active', 'suspended'] as const;
+export type ClinicStatus = (typeof CLINIC_STATUSES)[number];
+
 export const APPOINTMENT_STATUSES = [
   'booked',
   'arrived',

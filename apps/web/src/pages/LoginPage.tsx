@@ -8,13 +8,13 @@ import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { sessionQueryKey, useSession } from '@/auth/session';
+import { applySession, useSession } from '@/auth/session';
 import { homePathFor } from '@/layouts/nav';
 import { t } from '@/i18n';
-import { api, errorMessage, setCsrfToken } from '@/lib/api';
+import { api, errorMessage } from '@/lib/api';
 
 export function LoginPage() {
-  const { user } = useSession();
+  const { user, clinics, activeClinic } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -24,14 +24,14 @@ export function LoginPage() {
     mutationFn: (input: LoginInput) =>
       api<SessionResponse>('/auth/login', { method: 'POST', body: input }),
     onSuccess: (session) => {
-      setCsrfToken(session.csrfToken);
-      queryClient.setQueryData(sessionQueryKey, session);
+      applySession(queryClient, session);
       const from = (location.state as { from?: string } | null)?.from;
-      navigate(from && from !== '/login' ? from : homePathFor(session.user), { replace: true });
+      const home = homePathFor(session);
+      navigate(from && from !== '/login' && session.activeClinic ? from : home, { replace: true });
     },
   });
 
-  if (user) return <Navigate to={homePathFor(user)} replace />;
+  if (user) return <Navigate to={homePathFor({ user, clinics, activeClinic })} replace />;
   const { errors } = form.formState;
 
   return (

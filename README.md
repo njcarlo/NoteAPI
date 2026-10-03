@@ -4,7 +4,7 @@ A clinic-first web app for small clinics and solo doctors in the Philippines. Th
 **Appointment → Check-in → Consultation → Prescription**, with SMS and email notifications. One
 deployment serves many clinics, with strict data isolation between them.
 
-> **Status: Phase 1 (Foundation) complete.** See [Roadmap](#roadmap) for what is built so far.
+> **Status: Phase 1 (Foundation) and Phase 1.5 (multi-clinic) complete.** See [Roadmap](#roadmap).
 
 ## Quick start
 
@@ -12,7 +12,7 @@ Requirements: Node 22+, pnpm 10, Docker.
 
 ```bash
 cp .env.example .env
-docker compose up -d          # Postgres 16, Redis 7, Mailpit
+docker compose up -d          # Postgres 16, Mailpit
 pnpm install
 pnpm db:migrate               # creates tables, RLS policies, grants
 pnpm db:seed                  # demo clinic (wipes existing data; refuses in production)
@@ -21,28 +21,36 @@ pnpm dev                      # API on :3000, web on :5173
 
 Open http://localhost:5173 and sign in with a seed account:
 
-| Role           | Email                     | Password             |
-| -------------- | ------------------------- | -------------------- |
-| Admin + Doctor | `doctor@sample.clinic`    | `DemoDoctor#2026`    |
-| Secretary      | `secretary@sample.clinic` | `DemoSecretary#2026` |
+| Account                        | Password             | What it shows                                                                         |
+| ------------------------------ | -------------------- | ------------------------------------------------------------------------------------- |
+| `doctor@sample.clinic`         | `DemoDoctor#2026`    | Admin + doctor at Sample Family Clinic, doctor at Imus: picks a clinic, then switches |
+| `doctor2@sample.clinic`        | `DemoDoctor#2026`    | Second doctor at Sample Family Clinic                                                 |
+| `secretary@sample.clinic`      | `DemoSecretary#2026` | Secretary at Sample Family Clinic                                                     |
+| `imus.secretary@sample.clinic` | `DemoSecretary#2026` | Admin + secretary at Sample Imus Clinic                                               |
+| `platform@sample.clinic`       | `DemoPlatform#2026`  | Platform console: all clinics, no patient data                                        |
 
 Mailpit's inbox is at http://localhost:8025 (used from Phase 5).
 
 ### Seed data
 
-"Sample Family Clinic" in Dasmariñas, Cavite (`/c/sample-family-clinic`): one admin-doctor, one
-secretary, Mon–Sat schedules (08:00–12:00 and 13:00–17:00, 15-minute slots), 20 clearly fake
-patients (`+63917000xxxx`), today's appointments in mixed statuses, 7 finished visits with
-prescriptions, 56 common generic drugs and 3 Rx favorites.
+- **Sample Family Clinic**, Dasmariñas, Cavite (`/c/sample-family-clinic`): Dr. Santos (admin and
+  doctor, Mon–Sat 08:00–12:00 and 13:00–17:00, 15-minute slots), Dr. Cruz (Mon/Wed/Fri afternoons,
+  20-minute slots) and one secretary. 20 clearly fake patients (`+63917000xxxx`), today's
+  appointments in mixed statuses, 7 finished visits with prescriptions and 3 Rx favorites.
+- **Sample Imus Clinic** (`/c/sample-imus-clinic`): Dr. Santos again, as a doctor only (Tue/Thu
+  afternoons), its own admin-secretary and 3 patients. Its patients are separate from Dasmariñas.
+- 56 common generic drugs (shared reference data) and a platform admin.
 
-### Creating another clinic
+### Clinics and platform admins
 
-There is no self-serve sign-up yet. Provision a tenant from the command line; it prints a one-time
-password for the first admin:
+New clinics are created in the **platform console** (`/platform`) by a platform admin. If the clinic
+admin's email already has an account (for example, a doctor who practices elsewhere), that account
+is reused; otherwise a one-time temporary password is shown.
+
+Bootstrap the first platform admin from the command line (prints a one-time password):
 
 ```bash
-pnpm clinic:create --name "Dela Paz Clinic" --slug dela-paz \
-  --admin-name "Jo Dela Paz, MD" --admin-email jo@example.com --doctor --prc-no 0123456
+pnpm platform:admin --name "Your Name" --email you@example.com
 ```
 
 ## Scripts
@@ -72,7 +80,7 @@ Every variable is documented in [`.env.example`](.env.example). The important on
 
 - `DATABASE_URL` — runtime connection. **Must be the `clinic_app` role**, which is not a superuser
   and not the table owner, so row-level security applies.
-- `MIGRATION_DATABASE_URL` — owner connection, used only by migrate, seed and `clinic:create`.
+- `MIGRATION_DATABASE_URL` — owner connection, used only by migrate, seed and `platform:admin`.
 - `WEB_ORIGIN` / `PUBLIC_APP_URL` — the only origins allowed by CORS and the CSRF origin check.
 - `COOKIE_SECURE` — must be `true` in production (the API refuses to start otherwise).
 
@@ -91,21 +99,48 @@ The same Zod schemas validate forms in the browser and requests in the API
 (`fastify-type-provider-zod`). Response schemas are also enforced, so a route cannot leak a column
 it did not declare.
 
+### Clinics, people and memberships
+
+- A **user** is a person's login (global, one per email).
+- A **membership** gives a user roles in one clinic. One person can be admin and doctor in one
+  clinic and doctor only in another. Any staffing works: one doctor and one secretary, two doctors
+  sharing a secretary, and so on.
+- After sign-in, a user with one clinic goes straight in; a user with several picks one and can
+  switch from the sidebar. Every request runs against the **active clinic**, and switching clears
+  all cached data in the browser.
+- **Secretary assignments** (optional) limit a secretary to specific doctors. No assignment means
+  the secretary handles every doctor. The session exposes `assignedDoctorIds` for the queue and
+  calendar screens.
+- **Doctor credentials are per clinic** (`doctor_profiles` per clinic and user), because the PTR
+  number is issued by the city where the doctor practices.
+- Patients always belong to one clinic. A doctor at two clinics sees two separate patient lists:
+  each clinic controls its own records under the Data Privacy Act.
+
 ### Tenant isolation (two layers)
 
 1. **Scoped data access.** Routes never touch the database directly; they call
-   `request.tenant(fn)`, which opens a transaction bound to the signed-in user's clinic and hands
-   `fn` a `TenantScope`. `scope.where(table, …)` always adds `clinic_id = <current clinic>` and
+   `request.tenant(fn)`, which opens a transaction bound to the active clinic and hands `fn` a
+   `TenantScope`. `scope.where(table, …)` always adds `clinic_id = <current clinic>` and
    `scope.values(…)` stamps `clinic_id` on inserts.
-2. **Postgres row-level security as a backstop.** The transaction sets `app.clinic_id`, and every
-   tenant table has a policy that hides and rejects rows of any other clinic for the `clinic_app`
-   role. A query that forgets its filter still sees only its own clinic; with no tenant set, it
-   sees nothing. The only cross-tenant read is the `auth_lookup_user()` function used by sign-in.
+2. **Postgres row-level security as a backstop.** The transaction sets `app.clinic_id` and
+   `app.user_id`. Every tenant table hides and rejects rows of any other clinic for the
+   `clinic_app` role. Logins are visible only to the user and to clinics they belong to. A query
+   that forgets its filter still sees only its own clinic; with no context, it sees nothing. The
+   only cross-tenant lookups are two narrow functions used by sign-in and "add staff by email".
 
-`apps/api/test/tenant-isolation.test.ts` proves both layers.
+`apps/api/test/tenant-isolation.test.ts` and `multi-clinic.test.ts` prove both layers.
 
 **When you add a tenant table**, add a migration that enables RLS and creates the
 `tenant_isolation` policy for it (see `drizzle/0001_security.sql`).
+
+### Platform console without patient access
+
+Platform requests run with `SET LOCAL ROLE clinic_platform`. That database role has grants only on
+`clinics`, `memberships`, `doctor_profiles`, non-secret `users` columns and insert-only
+`audit_logs`; it has **no grants on any patient, visit or prescription table**, and patient counts
+come from a function that returns numbers only. `apps/api/test/platform.test.ts` checks that the
+role cannot read patients or password hashes. Suspending a clinic signs its staff out of it
+immediately.
 
 ### Auth and sessions
 
@@ -120,7 +155,7 @@ it did not declare.
 
 ### Roles and permissions
 
-A user holds one or more roles (`users.roles`), so a doctor can also be an admin. Permissions are
+A membership holds one or more roles, so a doctor can also be an admin. Permissions are
 defined once in `packages/shared/src/permissions.ts` and used by both API guards and navigation.
 
 | Permission             | Secretary | Doctor | Admin |
@@ -153,12 +188,16 @@ as `09XXXXXXXXX` or `+639XXXXXXXXX` and stored as E.164. All UI copy lives in
 
 ## Design decisions
 
-- **Roles are an array** instead of a single enum, so one account can be both admin and doctor.
+- **Memberships instead of `users.clinic_id`/`users.role`**, so one login can work in several
+  clinics with different roles in each.
 - **Every tenant-owned table has `clinic_id`**, including child tables such as `visits` and
   `prescription_items`, so RLS can apply uniformly. `clinics` has a unique `slug` for public URLs.
 - **No double-booking** is enforced by a Postgres exclusion constraint on each doctor's active
   scheduled appointments (`btree_gist`); walk-ins are excluded.
 - **`schedules.max_patients`** is a daily cap per doctor per weekday; slots are one patient each.
+- **No Redis.** Notification jobs (Phase 5) will use pg-boss, a Postgres-backed queue, so a job is
+  enqueued in the same transaction as the change that caused it and there is one less service to
+  run. Rate limiting is in-memory per API instance (limits multiply with instance count).
 - **Rx PDFs will be rendered after the finish-visit transaction commits** (and re-rendered on
   demand if missing), not inside it, so a slow render never holds database locks.
 
@@ -174,5 +213,16 @@ as `09XXXXXXXXX` or `+639XXXXXXXXX` and stored as E.164. All UI copy lives in
 | 6     | Hardening: isolation tests per route, Playwright happy path, README      | Planned |
 
 Pages for Today, Queue, Calendar and Settings show a "not available yet" state until their phase
-lands. The Redis service is used for rate limiting now (`RATE_LIMIT_USE_REDIS=true`) and for the
-notification worker in Phase 5.
+lands.
+
+## Hosting plan (Google Cloud)
+
+- **Web:** Firebase Hosting serving `apps/web/dist`, with `/api/**` rewritten to the API so cookies
+  stay same-origin.
+- **API and worker:** Cloud Run (scales to zero).
+- **Database:** Cloud SQL for PostgreSQL 16+ in `asia-southeast1` (Singapore). Run migrations with
+  the instance's owner user; create the `clinic_app` login (`CREATE ROLE clinic_app LOGIN PASSWORD
+'…'`) before the first migration. The migration creates `clinic_platform` itself.
+- **Files (logos, signatures, PDFs):** Cloud Storage, private bucket, served only through the API.
+
+Deployment files arrive in Phase 6.

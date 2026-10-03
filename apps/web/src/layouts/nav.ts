@@ -1,4 +1,5 @@
 import {
+  Building2,
   CalendarDays,
   ClipboardList,
   LayoutDashboard,
@@ -8,7 +9,14 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
-import { hasPermission, type Permission, type Role, type SessionUser } from '@clinic/shared';
+import {
+  hasPermission,
+  type ActiveClinic,
+  type ClinicMembership,
+  type Permission,
+  type Role,
+  type SessionUser,
+} from '@clinic/shared';
 import { t } from '@/i18n';
 
 interface NavItem {
@@ -19,7 +27,7 @@ interface NavItem {
   permission?: Permission;
 }
 
-const NAV: NavItem[] = [
+const CLINIC_NAV: NavItem[] = [
   { to: '/today', label: t.nav.today, icon: LayoutDashboard, roles: ['secretary'] },
   { to: '/queue', label: t.nav.queue, icon: ListOrdered, roles: ['doctor'] },
   { to: '/calendar', label: t.nav.calendar, icon: CalendarDays, permission: 'appointments:manage' },
@@ -29,17 +37,28 @@ const NAV: NavItem[] = [
   { to: '/settings', label: t.nav.settings, icon: Settings, permission: 'settings:manage' },
 ];
 
-export function navFor(user: SessionUser): NavItem[] {
-  return NAV.filter(
-    (item) =>
-      (!item.roles || item.roles.some((role) => user.roles.includes(role))) &&
-      (!item.permission || hasPermission(user.roles, item.permission)),
-  );
+const PLATFORM_NAV: NavItem = { to: '/platform', label: t.nav.platform, icon: Building2 };
+
+export function navFor(user: SessionUser, clinic: ActiveClinic | null): NavItem[] {
+  const items = clinic
+    ? CLINIC_NAV.filter(
+        (item) =>
+          (!item.roles || item.roles.some((role) => clinic.roles.includes(role))) &&
+          (!item.permission || hasPermission(clinic.roles, item.permission)),
+      )
+    : [];
+  return user.isPlatformAdmin ? [...items, PLATFORM_NAV] : items;
 }
 
-/** Where each role lands after sign-in. */
-export function homePathFor(user: SessionUser): string {
-  if (user.roles.includes('doctor')) return '/queue';
-  if (user.roles.includes('secretary')) return '/today';
+/** Where a user lands after sign-in or switching clinics. */
+export function homePathFor(session: {
+  user: SessionUser;
+  clinics: ClinicMembership[];
+  activeClinic: ActiveClinic | null;
+}): string {
+  const clinic = session.activeClinic;
+  if (!clinic) return session.clinics.length ? '/select-clinic' : '/platform';
+  if (clinic.roles.includes('doctor')) return '/queue';
+  if (clinic.roles.includes('secretary')) return '/today';
   return '/staff';
 }

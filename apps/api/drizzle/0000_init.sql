@@ -1,6 +1,7 @@
 CREATE TYPE "public"."appointment_source" AS ENUM('public', 'staff');--> statement-breakpoint
 CREATE TYPE "public"."appointment_status" AS ENUM('booked', 'arrived', 'in_consult', 'done', 'cancelled', 'no_show');--> statement-breakpoint
 CREATE TYPE "public"."appointment_type" AS ENUM('scheduled', 'walk_in');--> statement-breakpoint
+CREATE TYPE "public"."clinic_status" AS ENUM('active', 'suspended');--> statement-breakpoint
 CREATE TYPE "public"."notification_channel" AS ENUM('sms', 'email');--> statement-breakpoint
 CREATE TYPE "public"."notification_status" AS ENUM('queued', 'sent', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."role" AS ENUM('admin', 'doctor', 'secretary');--> statement-breakpoint
@@ -15,6 +16,7 @@ CREATE TABLE "clinics" (
 	"logo_url" text,
 	"timezone" text DEFAULT 'Asia/Manila' NOT NULL,
 	"sms_sender_name" varchar(11),
+	"status" "clinic_status" DEFAULT 'active' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "clinics_slug_unique" UNIQUE("slug")
@@ -30,14 +32,32 @@ CREATE TABLE "doctor_profiles" (
 	"s2_no" text,
 	"signature_url" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "doctor_profiles_userId_unique" UNIQUE("user_id")
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "memberships" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"clinic_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"roles" "role"[] NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "secretary_assignments" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"clinic_id" uuid NOT NULL,
+	"secretary_id" uuid NOT NULL,
+	"doctor_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "sessions" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
-	"clinic_id" uuid NOT NULL,
+	"active_clinic_id" uuid,
 	"csrf_token" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"ip" text,
@@ -47,12 +67,11 @@ CREATE TABLE "sessions" (
 --> statement-breakpoint
 CREATE TABLE "users" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"clinic_id" uuid NOT NULL,
 	"name" text NOT NULL,
 	"email" text NOT NULL,
 	"password_hash" text NOT NULL,
-	"roles" "role"[] NOT NULL,
 	"is_active" boolean DEFAULT true NOT NULL,
+	"is_platform_admin" boolean DEFAULT false NOT NULL,
 	"failed_login_count" integer DEFAULT 0 NOT NULL,
 	"locked_until" timestamp with time zone,
 	"last_login_at" timestamp with time zone,
@@ -268,9 +287,13 @@ CREATE TABLE "audit_logs" (
 --> statement-breakpoint
 ALTER TABLE "doctor_profiles" ADD CONSTRAINT "doctor_profiles_clinic_id_clinics_id_fk" FOREIGN KEY ("clinic_id") REFERENCES "public"."clinics"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "doctor_profiles" ADD CONSTRAINT "doctor_profiles_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "memberships" ADD CONSTRAINT "memberships_clinic_id_clinics_id_fk" FOREIGN KEY ("clinic_id") REFERENCES "public"."clinics"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "memberships" ADD CONSTRAINT "memberships_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "secretary_assignments" ADD CONSTRAINT "secretary_assignments_clinic_id_clinics_id_fk" FOREIGN KEY ("clinic_id") REFERENCES "public"."clinics"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "secretary_assignments" ADD CONSTRAINT "secretary_assignments_secretary_id_users_id_fk" FOREIGN KEY ("secretary_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "secretary_assignments" ADD CONSTRAINT "secretary_assignments_doctor_id_users_id_fk" FOREIGN KEY ("doctor_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sessions" ADD CONSTRAINT "sessions_clinic_id_clinics_id_fk" FOREIGN KEY ("clinic_id") REFERENCES "public"."clinics"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "users" ADD CONSTRAINT "users_clinic_id_clinics_id_fk" FOREIGN KEY ("clinic_id") REFERENCES "public"."clinics"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sessions" ADD CONSTRAINT "sessions_active_clinic_id_clinics_id_fk" FOREIGN KEY ("active_clinic_id") REFERENCES "public"."clinics"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "schedule_exceptions" ADD CONSTRAINT "schedule_exceptions_clinic_id_clinics_id_fk" FOREIGN KEY ("clinic_id") REFERENCES "public"."clinics"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "schedule_exceptions" ADD CONSTRAINT "schedule_exceptions_doctor_id_users_id_fk" FOREIGN KEY ("doctor_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "schedules" ADD CONSTRAINT "schedules_clinic_id_clinics_id_fk" FOREIGN KEY ("clinic_id") REFERENCES "public"."clinics"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -302,8 +325,11 @@ ALTER TABLE "notification_logs" ADD CONSTRAINT "notification_logs_patient_id_pat
 ALTER TABLE "notification_templates" ADD CONSTRAINT "notification_templates_clinic_id_clinics_id_fk" FOREIGN KEY ("clinic_id") REFERENCES "public"."clinics"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_clinic_id_clinics_id_fk" FOREIGN KEY ("clinic_id") REFERENCES "public"."clinics"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "doctor_profiles_clinic_id_user_id_index" ON "doctor_profiles" USING btree ("clinic_id","user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "memberships_clinic_id_user_id_index" ON "memberships" USING btree ("clinic_id","user_id");--> statement-breakpoint
+CREATE INDEX "memberships_user_id_index" ON "memberships" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "secretary_assignments_clinic_id_secretary_id_doctor_id_index" ON "secretary_assignments" USING btree ("clinic_id","secretary_id","doctor_id");--> statement-breakpoint
 CREATE INDEX "sessions_user_id_index" ON "sessions" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "users_clinic_id_index" ON "users" USING btree ("clinic_id");--> statement-breakpoint
 CREATE INDEX "schedule_exceptions_clinic_id_doctor_id_date_index" ON "schedule_exceptions" USING btree ("clinic_id","doctor_id","date");--> statement-breakpoint
 CREATE INDEX "schedules_clinic_id_doctor_id_day_of_week_index" ON "schedules" USING btree ("clinic_id","doctor_id","day_of_week");--> statement-breakpoint
 CREATE INDEX "patients_clinic_id_mobile_birthdate_index" ON "patients" USING btree ("clinic_id","mobile","birthdate");--> statement-breakpoint

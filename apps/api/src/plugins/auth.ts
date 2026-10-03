@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { ERROR_CODES, hasPermission, type Permission } from '@clinic/shared';
 import { env } from '../config/env';
-import { withTenant, type TenantScope } from '../db/tenant';
+import { withPlatform, withTenant, type PlatformScope, type TenantScope } from '../db/tenant';
 import { safeEqual } from '../lib/crypto';
 import { AppError, forbidden, unauthenticated } from '../lib/errors';
 import { resolveSession, type ActiveSession } from '../modules/auth/service';
@@ -17,8 +17,10 @@ declare module 'fastify' {
   }
   interface FastifyRequest {
     session: ActiveSession | null;
-    /** Runs `fn` in a transaction scoped to the signed-in user's clinic. */
+    /** Runs `fn` in a transaction scoped to the clinic the user is working in. */
     tenant<T>(fn: (scope: TenantScope) => Promise<T>): Promise<T>;
+    /** Runs `fn` as the platform role (no patient-data access). Platform admins only. */
+    platform<T>(fn: (scope: PlatformScope) => Promise<T>): Promise<T>;
   }
 }
 
@@ -41,12 +43,24 @@ export function requireAuth(request: FastifyRequest): ActiveSession {
   return request.session;
 }
 
-/** Route preHandler: signed in and holding the permission. */
+export function requireActiveClinic(request: FastifyRequest) {
+  const session = requireAuth(request);
+  if (!session.activeClinic) {
+    throw new AppError(403, ERROR_CODES.FORBIDDEN, 'Choose a clinic to continue');
+  }
+  return { session, clinic: session.activeClinic };
+}
+
+/** Route preHandler: holds the permission in the active clinic. */
 export function requirePermission(permission: Permission) {
   return async (request: FastifyRequest) => {
-    const session = requireAuth(request);
-    if (!hasPermission(session.user.roles, permission)) throw forbidden();
+    const { clinic } = requireActiveClinic(request);
+    if (!hasPermission(clinic.roles, permission)) throw forbidden();
   };
+}
+
+export async function requirePlatformAdmin(request: FastifyRequest) {
+  if (!requireAuth(request).user.isPlatformAdmin) throw forbidden();
 }
 
 const allowedOrigins = new Set([
@@ -59,8 +73,15 @@ export default fp(async (app: FastifyInstance) => {
   app.decorateRequest('tenant', function <
     T,
   >(this: FastifyRequest, fn: (scope: TenantScope) => Promise<T>) {
+    const { session, clinic } = requireActiveClinic(this);
+    return withTenant(clinic.id, { userId: session.user.id, ip: this.ip }, fn);
+  });
+  app.decorateRequest('platform', function <
+    T,
+  >(this: FastifyRequest, fn: (scope: PlatformScope) => Promise<T>) {
     const session = requireAuth(this);
-    return withTenant(session.user.clinicId, { userId: session.user.id, ip: this.ip }, fn);
+    if (!session.user.isPlatformAdmin) throw forbidden();
+    return withPlatform({ userId: session.user.id, ip: this.ip }, fn);
   });
 
   app.addHook('onRequest', async (request) => {
@@ -74,7 +95,7 @@ export default fp(async (app: FastifyInstance) => {
     }
 
     const token = request.cookies[SESSION_COOKIE];
-    if (token) request.session = await resolveSession(token, request.ip);
+    if (token) request.session = await resolveSession(token);
 
     // Signed-in unsafe requests must also echo the per-session CSRF token.
     if (

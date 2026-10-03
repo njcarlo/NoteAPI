@@ -8,6 +8,7 @@ import { env } from './config/env';
 import { auditRoutes } from './modules/audit/routes';
 import { authRoutes } from './modules/auth/routes';
 import { patientRoutes } from './modules/patients/routes';
+import { platformRoutes } from './modules/platform/routes';
 import { staffRoutes } from './modules/staff/routes';
 import authPlugin from './plugins/auth';
 import { registerErrorHandling } from './plugins/errors';
@@ -41,6 +42,7 @@ export async function buildApp() {
   await app.register(patientRoutes, { prefix: '/api/patients' });
   await app.register(staffRoutes, { prefix: '/api/staff' });
   await app.register(auditRoutes, { prefix: '/api/audit-logs' });
+  await app.register(platformRoutes, { prefix: '/api/platform' });
 
   return app;
 }
