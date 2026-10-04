@@ -103,7 +103,7 @@ export const queueSchema = z.object({
 export type Queue = z.infer<typeof queueSchema>;
 
 /** Server-sent event: tells screens what to refetch. Never carries patient data. */
-export interface ClinicEvent {
-  type: 'appointments.changed';
-  doctorId: string;
-}
+export type ClinicEvent =
+  | { type: 'appointments.changed'; doctorId: string }
+  /** A patient booked on the public page; staff get an in-app alert. */
+  | { type: 'booking.created'; doctorId: string; startAt: string };

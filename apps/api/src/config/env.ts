@@ -22,6 +22,23 @@ const envSchema = z.object({
   PUBLIC_WRITE_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(5),
   TRUST_PROXY: booleanString,
   STORAGE_DRIVER: z.enum(['local']).default('local'),
+  /** Signs cancel and opt-out links so they can be re-created for reminders without storing them. */
+  TOKEN_SECRET: z.string().min(32, 'TOKEN_SECRET must be at least 32 characters'),
+  /** Connection for the worker's job queue (pg-boss); must own the `pgboss` schema. Worker only. */
+  JOBS_DATABASE_URL: z.url().optional(),
+  SMS_PROVIDER: z.enum(['console', 'semaphore', 'memory']).default('console'),
+  SEMAPHORE_API_KEY: z.string().optional(),
+  SMS_SENDER_NAME: z.string().max(11).default('CLINIC'),
+  /** Shared secret the SMS gateway sends with inbound messages (STOP replies). */
+  SMS_WEBHOOK_SECRET: z.string().min(16).optional(),
+  EMAIL_PROVIDER: z.enum(['smtp', 'resend', 'memory']).default('smtp'),
+  EMAIL_FROM: z.string().default('Clinic <no-reply@clinic.local>'),
+  SMTP_HOST: z.string().default('localhost'),
+  SMTP_PORT: z.coerce.number().int().default(1025),
+  SMTP_SECURE: booleanString,
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
   STORAGE_DIR: z.string().default('./storage'),
 });
 
@@ -35,6 +52,18 @@ function loadEnv(): Env {
   }
   if (parsed.data.NODE_ENV === 'production' && !parsed.data.COOKIE_SECURE) {
     throw new Error('COOKIE_SECURE must be true in production');
+  }
+  if (parsed.data.SMS_PROVIDER === 'semaphore' && !parsed.data.SEMAPHORE_API_KEY) {
+    throw new Error('SEMAPHORE_API_KEY is required when SMS_PROVIDER=semaphore');
+  }
+  if (parsed.data.EMAIL_PROVIDER === 'resend' && !parsed.data.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is required when EMAIL_PROVIDER=resend');
+  }
+  if (
+    parsed.data.NODE_ENV === 'production' &&
+    (parsed.data.SMS_PROVIDER === 'memory' || parsed.data.EMAIL_PROVIDER === 'memory')
+  ) {
+    throw new Error('The memory notification providers are for tests only');
   }
   return parsed.data;
 }

@@ -41,6 +41,7 @@ import { renderPrescriptionPdf } from '../../lib/rx-pdf';
 import { iso } from '../../lib/sql';
 import { storage } from '../../lib/storage';
 import { insertAppointment } from '../appointments/service';
+import { enqueue, followUpReminderTime } from '../notifications/outbox';
 import { getClinic, lockDoctorDay } from '../scheduling/service';
 
 type FinishInput = z.output<typeof finishVisitSchema>;
@@ -249,10 +250,21 @@ export async function getConsult(
 async function ownOpenConsult(t: TenantScope, appointmentId: string, userId: string) {
   const { appointment } = await loadAppointment(t, appointmentId);
   if (appointment.doctorId !== userId) throw forbidden();
-  const [visit] = await t.tx
-    .select()
-    .from(visits)
-    .where(t.where(visits, eq(visits.appointmentId, appointmentId)));
+  const where = t.where(visits, eq(visits.appointmentId, appointmentId));
+  let [visit] = await t.tx.select().from(visits).where(where);
+  if (!visit && appointment.status === 'in_consult') {
+    // Normally created at check-in; patients called without one still get a visit.
+    [visit] = await t.tx
+      .insert(visits)
+      .values(
+        t.values({
+          appointmentId,
+          patientId: appointment.patientId,
+          doctorId: appointment.doctorId,
+        }),
+      )
+      .returning();
+  }
   if (!visit) throw notFound('Visit');
   if (visit.locked)
     throw conflict('This visit is already finished. Use an amendment to change it.');
@@ -397,6 +409,24 @@ export async function finishVisit(
         throw conflict('That follow-up time was just taken');
       throw error;
     }
+  } else if (input.followUpDate) {
+    const clinic = await getClinic(t);
+    await enqueue(t, {
+      event: 'followup.reminder',
+      appointmentId,
+      patientId: patient.id,
+      payload: { followUpDate: input.followUpDate },
+      runAt: followUpReminderTime(input.followUpDate, clinic.timezone),
+    });
+  }
+
+  if (prescriptionId) {
+    await enqueue(t, {
+      event: 'visit.finished',
+      appointmentId,
+      patientId: patient.id,
+      payload: { prescriptionId },
+    });
   }
 
   await t.audit({

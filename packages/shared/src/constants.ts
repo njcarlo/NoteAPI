@@ -26,7 +26,8 @@ export type Sex = (typeof SEXES)[number];
 export const NOTIFICATION_CHANNELS = ['sms', 'email'] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
-export const NOTIFICATION_STATUSES = ['queued', 'sent', 'failed'] as const;
+/** `skipped`: nothing was sent on purpose (opted out, no contact, appointment changed). */
+export const NOTIFICATION_STATUSES = ['queued', 'sent', 'failed', 'skipped'] as const;
 export type NotificationStatus = (typeof NOTIFICATION_STATUSES)[number];
 
 export const NOTIFICATION_EVENTS = [
@@ -36,6 +37,8 @@ export const NOTIFICATION_EVENTS = [
   'appointment.reminder',
   'visit.finished',
   'followup.reminder',
+  /** Email to the clinic about a new online booking (no patient details). */
+  'booking.staff_alert',
 ] as const;
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
 

@@ -2,7 +2,8 @@ import { eq } from 'drizzle-orm';
 import type { Role } from '@clinic/shared';
 import { hashPassword } from '../lib/password';
 import type { Database } from './connect';
-import { clinics, doctorProfiles, memberships, users } from './schema';
+import { defaultTemplateRows } from '../modules/notifications/templates';
+import { clinics, doctorProfiles, memberships, notificationTemplates, users } from './schema';
 
 export interface PersonInput {
   name: string;
@@ -45,6 +46,7 @@ export async function provisionClinic(
 ) {
   const [row] = await ownerDb.insert(clinics).values(clinic).returning();
   if (!row) throw new Error('Clinic insert returned no row');
+  await ownerDb.insert(notificationTemplates).values(defaultTemplateRows(row.id));
   const userIds: string[] = [];
   for (const member of members) {
     const { id: userId } = await upsertPerson(ownerDb, member);

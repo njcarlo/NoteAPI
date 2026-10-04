@@ -14,13 +14,13 @@ export interface ClinicEventEnvelope {
  * Publishes a change through Postgres NOTIFY. It is delivered only if the transaction commits,
  * and reaches every API instance listening on the channel. Payloads carry ids, never PHI.
  */
-export async function publishAppointmentsChanged(t: TenantScope, doctorId: string): Promise<void> {
-  const envelope: ClinicEventEnvelope = {
-    clinicId: t.clinicId,
-    event: { type: 'appointments.changed', doctorId },
-  };
+export async function publishClinicEvent(t: TenantScope, event: ClinicEvent): Promise<void> {
+  const envelope: ClinicEventEnvelope = { clinicId: t.clinicId, event };
   await t.tx.execute(sql`select pg_notify(${EVENTS_CHANNEL}, ${JSON.stringify(envelope)})`);
 }
+
+export const publishAppointmentsChanged = (t: TenantScope, doctorId: string) =>
+  publishClinicEvent(t, { type: 'appointments.changed', doctorId });
 
 /** In-process fan-out of events received from Postgres, keyed by clinic id. */
 export const clinicEvents = new EventEmitter();

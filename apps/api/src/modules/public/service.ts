@@ -18,7 +18,8 @@ import { db } from '../../db/client';
 import { appointments, clinics, patients, schedules, users } from '../../db/schema';
 import { withTenant, type TenantScope } from '../../db/tenant';
 import { sha256 } from '../../lib/crypto';
-import { publishAppointmentsChanged } from '../../lib/events';
+import { publishAppointmentsChanged, publishClinicEvent } from '../../lib/events';
+import { cancelPendingReminders, enqueue } from '../notifications/outbox';
 import { AppError, badRequest, conflict, notFound } from '../../lib/errors';
 import { iso } from '../../lib/sql';
 import { insertAppointment } from '../appointments/service';
@@ -191,6 +192,11 @@ export async function book(
     reason: input.reason ?? null,
     source: 'public',
   });
+  await publishClinicEvent(t, {
+    type: 'booking.created',
+    doctorId: doctor.id,
+    startAt: iso(slot.startAt),
+  });
   return {
     referenceCode: booking.referenceCode,
     startAt: iso(slot.startAt),
@@ -257,6 +263,12 @@ export async function cancelByToken(t: TenantScope, appointmentId: string): Prom
     entityType: 'appointment',
     entityId: appointmentId,
     metadata: { via: 'link' },
+  });
+  await cancelPendingReminders(t, appointmentId);
+  await enqueue(t, {
+    event: 'appointment.cancelled',
+    appointmentId,
+    patientId: appointment.patientId,
   });
   await publishAppointmentsChanged(t, appointment.doctorId);
   return cancelLookup(t, appointmentId);

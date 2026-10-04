@@ -67,7 +67,7 @@ const { db, client } = createDb(url, 1);
 
 try {
   await db.execute(sql`
-    truncate table audit_logs, notification_logs, notification_templates, rx_share_tokens,
+    truncate table audit_logs, notification_logs, outbox, notification_templates, rx_share_tokens,
       prescription_items, prescriptions, rx_favorites, soap_templates, visit_amendments, visits, appointments,
       patients, schedule_exceptions, schedules, secretary_assignments, doctor_profiles, sessions,
       memberships, users, clinics, drugs

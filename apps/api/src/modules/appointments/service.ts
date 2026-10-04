@@ -9,7 +9,10 @@ import {
 } from '@clinic/shared';
 import { appointments, patients, users } from '../../db/schema';
 import type { TenantScope } from '../../db/tenant';
-import { randomToken, sha256 } from '../../lib/crypto';
+import { randomUUID } from 'node:crypto';
+import { sha256 } from '../../lib/crypto';
+import { cancelTokenFor } from '../../lib/tokens';
+import { cancelPendingReminders, enqueue, scheduleReminders } from '../notifications/outbox';
 import { publishAppointmentsChanged } from '../../lib/events';
 import {
   badRequest,
@@ -130,7 +133,9 @@ export async function insertAppointment(
   const record = walkIn
     ? { ...base, ...walkIn, type: 'walk_in' as const, status: 'arrived' as const }
     : { ...base, type: 'scheduled' as const };
-  const cancelToken = randomToken();
+  // The id is chosen here so the cancel token (derived from it) can be stored with the row.
+  const id = randomUUID();
+  const cancelToken = cancelTokenFor(id);
   for (let attempt = 0; ; attempt++) {
     const code = referenceCode();
     try {
@@ -141,6 +146,7 @@ export async function insertAppointment(
           .values(
             t.values({
               ...record,
+              id,
               referenceCode: code,
               cancelTokenHash: sha256(cancelToken),
             }),
@@ -154,6 +160,23 @@ export async function insertAppointment(
         entityId: row.id,
         metadata: { source: values.source, doctorId: values.doctorId, walkIn: Boolean(walkIn) },
       });
+      if (!walkIn) {
+        const clinic = await getClinic(t);
+        await enqueue(t, {
+          event: 'appointment.booked',
+          appointmentId: row.id,
+          patientId: values.patientId,
+          payload: { public: values.source === 'public' },
+        });
+        if (values.source === 'public') {
+          await enqueue(t, { event: 'booking.staff_alert', appointmentId: row.id });
+        }
+        await scheduleReminders(
+          t,
+          { id: row.id, patientId: values.patientId, startAt: values.startAt },
+          clinic.timezone,
+        );
+      }
       await publishAppointmentsChanged(t, values.doctorId);
       return { id: row.id, referenceCode: code, cancelToken };
     } catch (error) {
@@ -238,6 +261,13 @@ export async function moveAppointment(
     entityId: id,
     metadata: { from: iso(current.startAt), to: iso(startAt), doctorId },
   });
+  await cancelPendingReminders(t, id);
+  await enqueue(t, {
+    event: 'appointment.rescheduled',
+    appointmentId: id,
+    patientId: current.patientId,
+  });
+  await scheduleReminders(t, { id, patientId: current.patientId, startAt }, clinic.timezone);
   await publishAppointmentsChanged(t, doctorId);
   if (doctorId !== current.doctorId) await publishAppointmentsChanged(t, current.doctorId);
   return getAppointment(t, id, scope);
@@ -269,6 +299,14 @@ export async function setAppointmentStatus(
     entityType: 'appointment',
     entityId: id,
   });
+  await cancelPendingReminders(t, id);
+  if (status === 'cancelled') {
+    await enqueue(t, {
+      event: 'appointment.cancelled',
+      appointmentId: id,
+      patientId: current.patientId,
+    });
+  }
   await publishAppointmentsChanged(t, current.doctorId);
   return getAppointment(t, id, scope);
 }

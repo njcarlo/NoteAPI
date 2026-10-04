@@ -3,9 +3,10 @@ import { PageHeader } from '@/components/PageHeader';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { CredentialsSettings } from './CredentialsSettings';
+import { NotificationSettings } from './NotificationSettings';
 import { SchedulesSettings } from './SchedulesSettings';
 
-const TABS = ['schedules', 'credentials'] as const;
+const TABS = ['schedules', 'credentials', 'notifications'] as const;
 
 export function SettingsPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('schedules');
@@ -29,8 +30,10 @@ export function SettingsPage() {
           </button>
         ))}
       </div>
-      <div className="max-w-4xl">
-        {tab === 'schedules' ? <SchedulesSettings /> : <CredentialsSettings />}
+      <div className="max-w-5xl">
+        {tab === 'schedules' && <SchedulesSettings />}
+        {tab === 'credentials' && <CredentialsSettings />}
+        {tab === 'notifications' && <NotificationSettings />}
       </div>
     </>
   );

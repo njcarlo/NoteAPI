@@ -12,7 +12,10 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts",
     "db:seed": "tsx --env-file-if-exists=../../.env src/db/seed.ts",
-    "platform:admin": "tsx --env-file-if-exists=../../.env src/scripts/create-platform-admin.ts"
+    "platform:admin": "tsx --env-file-if-exists=../../.env src/scripts/create-platform-admin.ts",
+    "worker": "tsx --env-file-if-exists=../../.env src/worker.ts",
+    "dev:worker": "tsx watch --env-file-if-exists=../../.env src/worker.ts",
+    "start:worker": "node dist/worker.js"
   },
   "dependencies": {
     "@clinic/shared": "workspace:*",
@@ -26,12 +29,15 @@
     "fastify": "^5.12.5",
     "fastify-plugin": "^5.1.0",
     "fastify-type-provider-zod": "^7.0.0",
+    "nodemailer": "^8.0.11",
     "pdfkit": "^0.17.2",
+    "pg-boss": "^12.36.0",
     "postgres": "^3.4.9",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
+    "@types/nodemailer": "^8.0.2",
     "@types/pdfkit": "^0.17.6",
     "@types/supertest": "^7.2.1",
     "drizzle-kit": "^0.31.11",

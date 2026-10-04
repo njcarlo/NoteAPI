@@ -7,7 +7,14 @@ import type {
   PlatformClinicCreateResponse,
   platformClinicCreateSchema,
 } from '@clinic/shared';
-import { clinics, doctorProfiles, memberships, users } from '../../db/schema';
+import {
+  clinics,
+  doctorProfiles,
+  memberships,
+  notificationTemplates,
+  users,
+} from '../../db/schema';
+import { defaultTemplateRows } from '../notifications/templates';
 import type { PlatformScope } from '../../db/tenant';
 import { randomToken } from '../../lib/crypto';
 import { conflict, isUniqueViolation, notFound } from '../../lib/errors';
@@ -69,6 +76,7 @@ export async function createClinic(
       .returning({ id: clinics.id });
     if (!clinic) throw new Error('Clinic insert returned no row');
     clinicId = clinic.id;
+    await p.tx.insert(notificationTemplates).values(defaultTemplateRows(clinicId));
   } catch (error) {
     if (isUniqueViolation(error)) throw conflict('That clinic address (slug) is taken');
     throw error;

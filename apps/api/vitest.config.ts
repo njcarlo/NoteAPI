@@ -21,6 +21,13 @@ export default defineConfig({
         'postgres://clinic:clinic@localhost:5432/clinic_test',
       LOGIN_RATE_LIMIT_PER_MINUTE: '1000',
       PUBLIC_WRITE_RATE_LIMIT_PER_MINUTE: '1000',
+      TOKEN_SECRET: 'test-token-secret-0123456789abcdefghijklmn',
+      JOBS_DATABASE_URL:
+        process.env.TEST_MIGRATION_DATABASE_URL ??
+        'postgres://clinic:clinic@localhost:5432/clinic_test',
+      SMS_PROVIDER: 'memory',
+      EMAIL_PROVIDER: 'memory',
+      SMS_WEBHOOK_SECRET: 'test-webhook-secret-123',
     },
   },
 });

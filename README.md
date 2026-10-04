@@ -4,7 +4,7 @@ A clinic-first web app for small clinics and solo doctors in the Philippines. Th
 **Appointment → Check-in → Consultation → Prescription**, with SMS and email notifications. One
 deployment serves many clinics, with strict data isolation between them.
 
-> **Status: Phases 1–4 complete (foundation, multi-clinic, booking, check-in and queue, consultation and prescriptions).** See [Roadmap](#roadmap).
+> **Status: Phases 1–5 complete (foundation, multi-clinic, booking, check-in and queue, consultation and prescriptions, notifications).** See [Roadmap](#roadmap).
 
 ## Quick start
 
@@ -16,7 +16,7 @@ docker compose up -d          # Postgres 16, Mailpit
 pnpm install
 pnpm db:migrate               # creates tables, RLS policies, grants
 pnpm db:seed                  # demo clinic (wipes existing data; refuses in production)
-pnpm dev                      # API on :3000, web on :5173
+pnpm dev                      # API on :3000, web on :5173, notification worker
 ```
 
 Open http://localhost:5173 and sign in with a seed account:
@@ -31,7 +31,8 @@ Open http://localhost:5173 and sign in with a seed account:
 | `imus.secretary@sample.clinic` | `DemoSecretary#2026` | Admin + secretary at Sample Imus Clinic                                               |
 | `platform@sample.clinic`       | `DemoPlatform#2026`  | Platform console: all clinics, no patient data                                        |
 
-Mailpit's inbox is at http://localhost:8025 (used from Phase 5).
+Mailpit's inbox is at http://localhost:8025: patient and staff emails land there. With
+`SMS_PROVIDER=console`, text messages are printed in the worker's output.
 
 Patient-facing pages (no login): the booking page at http://localhost:5173/c/sample-family-clinic,
 cancel links at `/cancel/<token>` (shown after booking) and the privacy notice at `/privacy`.
@@ -66,7 +67,8 @@ pnpm platform:admin --name "Your Name" --email you@example.com
 
 | Command              | What it does                                            |
 | -------------------- | ------------------------------------------------------- |
-| `pnpm dev`           | API (tsx watch) and web (Vite) together                 |
+| `pnpm dev`           | API, notification worker and web (Vite) together        |
+| `pnpm worker`        | Notification worker only                                |
 | `pnpm build`         | Builds every package (`apps/api/dist`, `apps/web/dist`) |
 | `pnpm test`          | Unit tests (shared) and API integration tests           |
 | `pnpm typecheck`     | `tsc` in every package                                  |
@@ -77,7 +79,8 @@ pnpm platform:admin --name "Your Name" --email you@example.com
 | `pnpm db:seed`       | Reset the database to the demo clinic                   |
 | `pnpm clinic:create` | Provision a new clinic and its first admin              |
 
-Production: `pnpm build`, then `node apps/api/dist/db/migrate.js` and `node apps/api/dist/server.js`.
+Production: `pnpm build`, then `node apps/api/dist/db/migrate.js`, `node apps/api/dist/server.js`
+and `node apps/api/dist/worker.js` (one or more worker instances).
 Serve `apps/web/dist` as static files with `/api` reverse-proxied to the API on the same origin.
 
 API integration tests need Postgres. They migrate and use `TEST_MIGRATION_DATABASE_URL` /
@@ -246,6 +249,48 @@ Nothing assumes a doctor count. Every screen adapts:
   consulting doctor can edit or amend it. The app's database role cannot delete visits or
   prescriptions.
 
+### Notifications (SMS and email)
+
+```
+appointment change ──(same transaction)──▶ outbox row ──▶ relay (worker, every 5 s)
+                                                              │ claims due rows
+                                                              ▼
+                                  pg-boss queue "notify" (3 retries, exponential backoff)
+                                                              │
+                                                              ▼
+            render template ▶ check validity and opt-in ▶ SMS / email adapter ▶ notification_logs
+```
+
+- **Events:** booking confirmation, moved, cancelled, reminders (6 PM the day before and 7 AM the
+  same day, Manila time), after-visit prescription link, follow-up reminder (two days before the
+  recommended date, unless a follow-up is already booked), and a staff email for online bookings.
+- **Transactional outbox:** each notification is written to `outbox` in the same transaction as
+  the change. Moving, cancelling or checking in deletes the appointment's pending reminders in that
+  transaction and queues new ones; a due reminder whose appointment changed anyway is skipped.
+  The worker relays due rows to pg-boss (`JOBS_DATABASE_URL`); the API never talks to the queue.
+- **Delivery:** per channel, logged in `notification_logs` (`queued | sent | failed | skipped`).
+  A retry never re-sends a channel that already went out. After the last retry the failure stays
+  in the log and the row is closed. Provider errors are logged without message content.
+- **Adapters:** `SMS_PROVIDER=console | semaphore`, `EMAIL_PROVIDER=smtp | resend` (plus `memory`
+  for tests).
+- **Privacy (hard rule):** templates may only use `firstName`, `clinicName`, `clinicPhone`, `date`,
+  `time`, `referenceCode`, `cancelLink`, `bookingLink` and `rxLink`. There is no variable for the
+  visit reason, diagnosis or medicines, and templates with any other placeholder are rejected.
+  Tests book with a reason and check it never appears in any message; staff alerts carry no
+  patient name.
+- **Templates:** default SMS and email templates are created for every clinic and edited in
+  Settings → Notifications with variable buttons, a live preview and an SMS part counter. With
+  links included, some SMS run to two parts; the counter shows this.
+- **Opt-out:** every SMS ends with a signed opt-out link (`/u/:token`). Patients can also reply
+  STOP if the gateway forwards replies to `POST /api/webhooks/sms/inbound` with the
+  `x-webhook-secret` header (`SMS_WEBHOOK_SECRET`). Consent and the SMS choice are recorded at
+  booking. Opt-outs are audited.
+- **Links in messages:** cancel and opt-out links are derived from `TOKEN_SECRET` with HMAC, so
+  reminders can include them without storing them; only hashes are kept. The after-visit message
+  creates a 14-day prescription share link (birthdate check).
+- **Staff alerts:** online bookings pop up an in-app alert for signed-in staff (via the live
+  event stream) and email the clinic address if one is set.
+
 ### Auth and sessions
 
 - argon2id password hashes; constant-time handling for unknown emails.
@@ -300,28 +345,26 @@ as `09XXXXXXXXX` or `+639XXXXXXXXX` and stored as E.164. All UI copy lives in
   scheduled appointments (`btree_gist`); walk-ins are excluded.
 - **`schedules.max_patients`** caps scheduled appointments within one block (e.g. "max 15 in the
   morning session"); slots are one patient each. Walk-ins do not count against it.
-- **No Redis.** Notification jobs (Phase 5) will use pg-boss, a Postgres-backed queue, so a job is
-  enqueued in the same transaction as the change that caused it and there is one less service to
-  run. Rate limiting is in-memory per API instance (limits multiply with instance count).
-- **Rx PDFs will be rendered after the finish-visit transaction commits** (and re-rendered on
+- **No Redis.** Notification jobs use pg-boss, a Postgres-backed queue fed by a transactional
+  outbox, so there is one less service to run. Rate limiting is in-memory per API instance (limits multiply with instance count).
+- **Rx PDFs are rendered after the finish-visit transaction commits** (and re-rendered on
   demand if missing), not inside it, so a slow render never holds database locks.
 
 ## Roadmap
 
-| Phase | Scope                                                                              | Status  |
-| ----- | ---------------------------------------------------------------------------------- | ------- |
-| 1     | Monorepo, schema, auth, RBAC, tenant scoping, audit, app shell                     | Done    |
-| 1.5   | Multi-clinic memberships, clinic switcher, platform console, secretary assignments | Done    |
-| 2     | Schedules, slot generation, public booking, staff calendar, cancel links           | Done    |
-| 3     | Today dashboard, check-in with vitals, SSE queue                                   | Done    |
-| 4     | Consultation, SOAP, prescriptions, PDF, share links, amendments                    | Done    |
-| 5     | Notifications: pg-boss worker, SMS/email adapters, reminders, opt-out              | Next    |
-| 6     | Hardening, Playwright happy path, Google Cloud deployment                          | Planned |
+| Phase | Scope                                                                              | Status |
+| ----- | ---------------------------------------------------------------------------------- | ------ |
+| 1     | Monorepo, schema, auth, RBAC, tenant scoping, audit, app shell                     | Done   |
+| 1.5   | Multi-clinic memberships, clinic switcher, platform console, secretary assignments | Done   |
+| 2     | Schedules, slot generation, public booking, staff calendar, cancel links           | Done   |
+| 3     | Today dashboard, check-in with vitals, SSE queue                                   | Done   |
+| 4     | Consultation, SOAP, prescriptions, PDF, share links, amendments                    | Done   |
+| 5     | Notifications: pg-boss worker, SMS/email adapters, reminders, opt-out              | Done   |
+| 6     | Hardening, Playwright happy path, Google Cloud deployment                          | Next   |
 
-Settings covers doctor schedules and credentials; the clinic profile, logo and signature images,
-and notification templates follow in Phase 5. A Cloud Storage driver for files is planned with
-the Phase 6 deployment work. Booking confirmations and reminders by SMS/email arrive in Phase 5; until then the
-confirmation screen shows the reference code and cancel link.
+Settings covers doctor schedules, doctor credentials and notification templates. Still to come:
+editing the clinic profile, uploading a logo or signature image (the PDF prints a signature line),
+and a Cloud Storage driver for files with the Phase 6 deployment work.
 
 ## Hosting plan (Google Cloud)
 

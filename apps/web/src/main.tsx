@@ -15,6 +15,7 @@ import { QueuePage } from '@/features/queue/QueuePage';
 import { TodayPage } from '@/features/queue/TodayPage';
 import { BookingPage } from '@/features/public/BookingPage';
 import { CancelPage } from '@/features/public/CancelPage';
+import { OptOutPage } from '@/features/public/OptOutPage';
 import { PrivacyPage } from '@/features/public/PrivacyPage';
 import { RxSharePage } from '@/features/public/RxSharePage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
@@ -43,6 +44,7 @@ const router = createBrowserRouter([
   { path: '/cancel/:token', element: <CancelPage /> },
   { path: '/privacy', element: <PrivacyPage /> },
   { path: '/rx/:token', element: <RxSharePage /> },
+  { path: '/u/:token', element: <OptOutPage /> },
   {
     element: <AppShell />,
     children: [

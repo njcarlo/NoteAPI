@@ -3,6 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     server: 'src/server.ts',
+    worker: 'src/worker.ts',
     'db/migrate': 'src/db/migrate.ts',
     'db/seed': 'src/db/seed.ts',
     'scripts/create-platform-admin': 'src/scripts/create-platform-admin.ts',

@@ -13,6 +13,7 @@ import { appointments, patients, users, visits } from '../../db/schema';
 import type { TenantScope } from '../../db/tenant';
 import { conflict, forbidden, notFound } from '../../lib/errors';
 import { publishAppointmentsChanged } from '../../lib/events';
+import { cancelPendingReminders } from '../notifications/outbox';
 import { iso } from '../../lib/sql';
 import {
   assertDoctorInScope,
@@ -162,6 +163,7 @@ export async function checkIn(
     .where(t.where(appointments, eq(appointments.id, appointmentId)));
   await completeProfile(t, appt.patientId, input.patient);
   await saveVitals(t, appt, input.vitals);
+  await cancelPendingReminders(t, appointmentId);
   await t.audit({
     action: 'appointment.check_in',
     entityType: 'appointment',

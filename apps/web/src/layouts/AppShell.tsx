@@ -1,12 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { LogOut } from 'lucide-react';
-import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router';
+import { BellRing, LogOut, X } from 'lucide-react';
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { applySession, useSelectClinic, useSession } from '@/auth/session';
 import { t } from '@/i18n';
 import { api } from '@/lib/api';
+import { manilaDateTime } from '@/lib/format';
 import { useLiveUpdates } from '@/lib/live';
 import { cn } from '@/lib/utils';
 import { homePathFor, navFor } from './nav';
@@ -19,7 +20,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const selectClinic = useSelectClinic();
-  const live = useLiveUpdates(activeClinic?.id ?? null);
+  const { state: live, alerts, dismiss } = useLiveUpdates(activeClinic?.id ?? null);
   const logout = useMutation({
     mutationFn: () => api<void>('/auth/logout', { method: 'POST' }),
     onSettled: () => applySession(queryClient, null),
@@ -103,6 +104,36 @@ export function AppShell() {
       <main className="flex-1 p-4 md:p-8">
         <Outlet />
       </main>
+      {alerts.length > 0 && (
+        <div className="fixed top-4 right-4 z-50 w-80 space-y-2" role="status" aria-live="polite">
+          {alerts.map((a) => (
+            <div
+              key={a.id}
+              className="flex items-start gap-3 rounded-lg border border-border bg-card p-3 text-sm shadow-lg"
+            >
+              <BellRing className="mt-0.5 size-4 shrink-0 text-primary" />
+              <div className="flex-1">
+                <p className="font-medium">{t.alerts.newBooking(manilaDateTime(a.startAt))}</p>
+                <Link
+                  className="text-primary hover:underline"
+                  to="/calendar"
+                  onClick={() => dismiss(a.id)}
+                >
+                  {t.alerts.view}
+                </Link>
+              </div>
+              <button
+                type="button"
+                aria-label={t.alerts.dismiss}
+                onClick={() => dismiss(a.id)}
+                className="text-muted-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
