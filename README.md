@@ -233,14 +233,15 @@ as `09XXXXXXXXX` or `+639XXXXXXXXX` and stored as E.164. All UI copy lives in
 
 ## Roadmap
 
-| Phase | Scope                                                                    | Status  |
-| ----- | ------------------------------------------------------------------------ | ------- |
-| 1     | Monorepo, schema, auth, RBAC, tenant scoping, audit, app shell           | Done    |
-| 2     | Schedules, slot generation, public booking, staff calendar, cancel links | Done    |
-| 3     | Today dashboard, check-in with vitals, SSE queue                         | Planned |
-| 4     | Consultation, SOAP, prescriptions, PDF, share links, amendments          | Planned |
-| 5     | Notifications: BullMQ worker, SMS/email adapters, reminders, opt-out     | Planned |
-| 6     | Hardening: isolation tests per route, Playwright happy path, README      | Planned |
+| Phase | Scope                                                                              | Status  |
+| ----- | ---------------------------------------------------------------------------------- | ------- |
+| 1     | Monorepo, schema, auth, RBAC, tenant scoping, audit, app shell                     | Done    |
+| 1.5   | Multi-clinic memberships, clinic switcher, platform console, secretary assignments | Done    |
+| 2     | Schedules, slot generation, public booking, staff calendar, cancel links           | Done    |
+| 3     | Today dashboard, check-in with vitals, SSE queue                                   | Next    |
+| 4     | Consultation, SOAP, prescriptions, PDF, share links, amendments                    | Planned |
+| 5     | Notifications: pg-boss worker, SMS/email adapters, reminders, opt-out              | Planned |
+| 6     | Hardening, Playwright happy path, Google Cloud deployment                          | Planned |
 
 The Today and Queue pages show a "not available yet" state until Phase 3. Settings currently
 covers doctor schedules; clinic profile, doctor credentials, templates and favorites follow in later
