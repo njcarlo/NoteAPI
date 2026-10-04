@@ -11,7 +11,8 @@ export default async function setup() {
   await db.execute(sql`
     truncate table audit_logs, notification_logs, notification_templates, rx_share_tokens,
       prescription_items, prescriptions, rx_favorites, visit_amendments, visits, appointments,
-      patients, schedule_exceptions, schedules, doctor_profiles, sessions, users, clinics
+      patients, schedule_exceptions, schedules, secretary_assignments, doctor_profiles, sessions,
+      memberships, users, clinics
     restart identity cascade
   `);
   await client.end();

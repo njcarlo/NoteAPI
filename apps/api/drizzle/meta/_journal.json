@@ -15,6 +15,13 @@
       "when": 1791053111421,
       "tag": "0001_security",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791081753485,
+      "tag": "0002_booking",
+      "breakpoints": true
     }
   ]
 }

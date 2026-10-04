@@ -5,10 +5,13 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { env } from './config/env';
+import { appointmentRoutes } from './modules/appointments/routes';
 import { auditRoutes } from './modules/audit/routes';
 import { authRoutes } from './modules/auth/routes';
 import { patientRoutes } from './modules/patients/routes';
 import { platformRoutes } from './modules/platform/routes';
+import { publicRoutes } from './modules/public/routes';
+import { doctorRoutes } from './modules/scheduling/routes';
 import { staffRoutes } from './modules/staff/routes';
 import authPlugin from './plugins/auth';
 import { registerErrorHandling } from './plugins/errors';
@@ -43,6 +46,9 @@ export async function buildApp() {
   await app.register(staffRoutes, { prefix: '/api/staff' });
   await app.register(auditRoutes, { prefix: '/api/audit-logs' });
   await app.register(platformRoutes, { prefix: '/api/platform' });
+  await app.register(doctorRoutes, { prefix: '/api/doctors' });
+  await app.register(appointmentRoutes, { prefix: '/api/appointments' });
+  await app.register(publicRoutes, { prefix: '/api/public' });
 
   return app;
 }

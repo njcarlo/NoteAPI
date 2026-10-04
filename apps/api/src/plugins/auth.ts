@@ -51,6 +51,11 @@ export function requireActiveClinic(request: FastifyRequest) {
   return { session, clinic: session.activeClinic };
 }
 
+/** Doctors the user may work with in the active clinic (secretary assignments); null = all. */
+export function doctorScope(request: FastifyRequest): string[] | null {
+  return requireActiveClinic(request).clinic.assignedDoctorIds;
+}
+
 /** Route preHandler: holds the permission in the active clinic. */
 export function requirePermission(permission: Permission) {
   return async (request: FastifyRequest) => {

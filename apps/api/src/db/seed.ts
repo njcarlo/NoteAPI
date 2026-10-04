@@ -1,7 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { CLINIC_TIMEZONE, todayIn, type AppointmentStatus, type Sex } from '@clinic/shared';
+import {
+  addDays,
+  CLINIC_TIMEZONE,
+  todayIn,
+  zonedToUtc,
+  type AppointmentStatus,
+  type Sex,
+} from '@clinic/shared';
 import { referenceCode } from '../lib/reference';
-import { addDays, zonedToUtc } from '../lib/time';
+
 import { createDb } from './connect';
 import { provisionClinic, upsertPerson } from './provision';
 import {

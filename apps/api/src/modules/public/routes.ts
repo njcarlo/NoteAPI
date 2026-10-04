@@ -1,0 +1,104 @@
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import { z } from 'zod';
+import {
+  cancelLookupSchema,
+  cancelTokenParams,
+  publicBookingResultSchema,
+  publicBookingSchema,
+  publicClinicSchema,
+  publicDaySchema,
+  publicDaysQuery,
+  publicSlotsQuery,
+  slotSchema,
+} from '@clinic/shared';
+import {
+  book,
+  cancelByToken,
+  cancelLookup,
+  inPublicClinic,
+  publicClinic,
+  publicDays,
+  publicSlots,
+  withCancelToken,
+} from './service';
+import { env } from '../../config/env';
+
+const slugParams = z.object({ slug: z.string().min(1).max(63) });
+
+/** Unauthenticated endpoints for patients. They never use the staff session or its CSRF token. */
+export const publicRoutes: FastifyPluginAsyncZod = async (app) => {
+  const read = { skipCsrfToken: true, rateLimit: { max: 60, timeWindow: '1 minute' } };
+  const write = {
+    skipCsrfToken: true,
+    rateLimit: { max: env.PUBLIC_WRITE_RATE_LIMIT_PER_MINUTE, timeWindow: '1 minute' },
+  };
+
+  app.get(
+    '/clinics/:slug',
+    { config: read, schema: { params: slugParams, response: { 200: publicClinicSchema } } },
+    (request) =>
+      inPublicClinic(request.params.slug, request.ip, (t, clinic) => publicClinic(t, clinic)),
+  );
+
+  app.get(
+    '/clinics/:slug/days',
+    {
+      config: read,
+      schema: {
+        params: slugParams,
+        querystring: publicDaysQuery,
+        response: { 200: z.array(publicDaySchema) },
+      },
+    },
+    (request) =>
+      inPublicClinic(request.params.slug, request.ip, (t, clinic) =>
+        publicDays(t, clinic, request.query.doctorId, request.query.from),
+      ),
+  );
+
+  app.get(
+    '/clinics/:slug/slots',
+    {
+      config: read,
+      schema: {
+        params: slugParams,
+        querystring: publicSlotsQuery,
+        response: { 200: z.array(slotSchema) },
+      },
+    },
+    (request) =>
+      inPublicClinic(request.params.slug, request.ip, (t, clinic) =>
+        publicSlots(t, clinic, request.query.doctorId, request.query.date),
+      ),
+  );
+
+  app.post(
+    '/clinics/:slug/bookings',
+    {
+      config: write,
+      schema: {
+        params: slugParams,
+        body: publicBookingSchema,
+        response: { 201: publicBookingResultSchema },
+      },
+    },
+    async (request, reply) => {
+      const result = await inPublicClinic(request.params.slug, request.ip, (t, clinic) =>
+        book(t, clinic, request.body),
+      );
+      return reply.status(201).send(result);
+    },
+  );
+
+  app.get(
+    '/cancel/:token',
+    { config: read, schema: { params: cancelTokenParams, response: { 200: cancelLookupSchema } } },
+    (request) => withCancelToken(request.params.token, request.ip, cancelLookup),
+  );
+
+  app.post(
+    '/cancel/:token',
+    { config: write, schema: { params: cancelTokenParams, response: { 200: cancelLookupSchema } } },
+    (request) => withCancelToken(request.params.token, request.ip, cancelByToken),
+  );
+};

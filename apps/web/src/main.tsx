@@ -5,10 +5,15 @@ import { createBrowserRouter, RouterProvider } from 'react-router';
 import { SessionProvider } from '@/auth/session';
 import { RequireAccess } from '@/components/RequirePermission';
 import { AuditPage } from '@/features/audit/AuditPage';
+import { CalendarPage } from '@/features/calendar/CalendarPage';
 import { PatientDetailPage } from '@/features/patients/PatientDetailPage';
 import { PatientFormPage } from '@/features/patients/PatientFormPage';
 import { PatientsPage } from '@/features/patients/PatientsPage';
 import { PlatformPage } from '@/features/platform/PlatformPage';
+import { BookingPage } from '@/features/public/BookingPage';
+import { CancelPage } from '@/features/public/CancelPage';
+import { PrivacyPage } from '@/features/public/PrivacyPage';
+import { SettingsPage } from '@/features/settings/SettingsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
 import { t } from '@/i18n';
 import { AppShell } from '@/layouts/AppShell';
@@ -32,6 +37,9 @@ const queryClient = new QueryClient({
 
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
+  { path: '/c/:slug', element: <BookingPage /> },
+  { path: '/cancel/:token', element: <CancelPage /> },
+  { path: '/privacy', element: <PrivacyPage /> },
   {
     element: <AppShell />,
     children: [
@@ -65,7 +73,7 @@ const router = createBrowserRouter([
         path: 'calendar',
         element: (
           <RequireAccess permission="appointments:manage">
-            <ComingSoonPage title={t.nav.calendar} />
+            <CalendarPage />
           </RequireAccess>
         ),
       },
@@ -126,7 +134,7 @@ const router = createBrowserRouter([
         path: 'settings',
         element: (
           <RequireAccess permission="settings:manage">
-            <ComingSoonPage title={t.nav.settings} />
+            <SettingsPage />
           </RequireAccess>
         ),
       },

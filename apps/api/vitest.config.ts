@@ -20,6 +20,7 @@ export default defineConfig({
         process.env.TEST_MIGRATION_DATABASE_URL ??
         'postgres://clinic:clinic@localhost:5432/clinic_test',
       LOGIN_RATE_LIMIT_PER_MINUTE: '1000',
+      PUBLIC_WRITE_RATE_LIMIT_PER_MINUTE: '1000',
     },
   },
 });

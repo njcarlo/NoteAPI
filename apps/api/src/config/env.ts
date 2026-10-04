@@ -19,6 +19,7 @@ const envSchema = z.object({
   LOGIN_MAX_FAILURES: z.coerce.number().int().positive().default(5),
   LOGIN_LOCK_MINUTES: z.coerce.number().int().positive().default(15),
   LOGIN_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
+  PUBLIC_WRITE_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(5),
   TRUST_PROXY: booleanString,
 });
 

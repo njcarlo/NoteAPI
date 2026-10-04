@@ -46,7 +46,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => setCsrfToken(query.data?.csrfToken ?? null), [query.data]);
-  useEffect(() => setUnauthenticatedHandler(() => applySession(queryClient, null)), [queryClient]);
+  useEffect(
+    () =>
+      setUnauthenticatedHandler(() => {
+        if (queryClient.getQueryData(sessionQueryKey)) applySession(queryClient, null);
+      }),
+    [queryClient],
+  );
 
   const session = query.data ?? null;
   const value: SessionContextValue = {

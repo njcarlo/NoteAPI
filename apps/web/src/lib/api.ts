@@ -57,7 +57,9 @@ export async function api<T>(
   const data = (await res.json().catch(() => null)) as unknown;
   if (!res.ok) {
     const body = (data as ApiErrorBody | null)?.error;
-    if (res.status === 401 && path !== '/auth/login') onUnauthenticated?.();
+    // Public pages and the session probe are expected to be anonymous.
+    if (res.status === 401 && !path.startsWith('/auth/') && !path.startsWith('/public/'))
+      onUnauthenticated?.();
     throw new ApiError(
       res.status,
       body?.code ?? 'INTERNAL_ERROR',

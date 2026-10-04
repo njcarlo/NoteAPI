@@ -28,3 +28,10 @@ export function isUniqueViolation(error: unknown, constraint?: string): boolean 
   const { code, constraint_name } = (pg ?? {}) as { code?: string; constraint_name?: string };
   return code === '23505' && (!constraint || constraint_name === constraint);
 }
+
+/** Postgres exclusion-constraint violation (e.g. overlapping appointments). */
+export function isExclusionViolation(error: unknown, constraint?: string): boolean {
+  const pg = (error as { cause?: unknown })?.cause ?? error;
+  const { code, constraint_name } = (pg ?? {}) as { code?: string; constraint_name?: string };
+  return code === '23P01' && (!constraint || constraint_name === constraint);
+}
