@@ -19,6 +19,7 @@ import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSession } from '@/auth/session';
 import { Panel } from '@/features/calendar/panels';
 import { useDoctors } from '@/features/calendar/api';
 import { usePatient } from '@/features/patients/api';
@@ -218,12 +219,13 @@ function WalkInForm({
   doctors: { id: string; name: string }[];
   onDone: (a: Appointment) => void;
 }) {
+  const currentUserId = useSession().user?.id;
   const walkIn = useWalkIn();
   const form = useForm<WalkInInput, unknown, WalkInData>({
     resolver: zodResolver(walkInSchema),
     defaultValues: {
       patientId: patient.id,
-      doctorId: doctors[0]?.id ?? '',
+      doctorId: doctors.find((d) => d.id === currentUserId)?.id ?? doctors[0]?.id ?? '',
       reason: '',
       patient: { allergies: patient.allergies ?? '', conditions: patient.conditions ?? '' },
       vitals: {},

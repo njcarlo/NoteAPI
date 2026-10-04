@@ -25,6 +25,8 @@ Open http://localhost:5173 and sign in with a seed account:
 | ------------------------------ | -------------------- | ------------------------------------------------------------------------------------- |
 | `doctor@sample.clinic`         | `DemoDoctor#2026`    | Admin + doctor at Sample Family Clinic, doctor at Imus: picks a clinic, then switches |
 | `doctor2@sample.clinic`        | `DemoDoctor#2026`    | Second doctor at Sample Family Clinic                                                 |
+| `doctor3@sample.clinic`        | `DemoDoctor#2026`    | Third doctor at Sample Family Clinic                                                  |
+| `solo@sample.clinic`           | `DemoDoctor#2026`    | Solo practice: one doctor, no secretary, runs the front desk                          |
 | `secretary@sample.clinic`      | `DemoSecretary#2026` | Secretary at Sample Family Clinic                                                     |
 | `imus.secretary@sample.clinic` | `DemoSecretary#2026` | Admin + secretary at Sample Imus Clinic                                               |
 | `platform@sample.clinic`       | `DemoPlatform#2026`  | Platform console: all clinics, no patient data                                        |
@@ -40,6 +42,10 @@ cancel links at `/cancel/<token>` (shown after booking) and the privacy notice a
   doctor, Mon–Sat 08:00–12:00 and 13:00–17:00, 15-minute slots), Dr. Cruz (Mon/Wed/Fri afternoons,
   20-minute slots) and one secretary. 20 clearly fake patients (`+63917000xxxx`), today's
   appointments in mixed statuses, 7 finished visits with prescriptions and 3 Rx favorites.
+- **Sample Family Clinic** also has Dr. Lim (OB-GYN, Tue/Thu 09:00–15:00, 30-minute slots), so
+  it shows three doctors sharing one secretary.
+- **Sample Solo Practice**, Gen. Trias (`/c/sample-solo-practice`): one admin-doctor and no
+  secretary. The doctor checks patients in and runs the queue alone.
 - **Sample Imus Clinic** (`/c/sample-imus-clinic`): Dr. Santos again, as a doctor only (Tue/Thu
   afternoons), its own admin-secretary and 3 patients. Its patients are separate from Dasmariñas.
 - 56 common generic drugs (shared reference data) and a platform admin.
@@ -171,9 +177,23 @@ immediately.
   another open slot, cancel it, or mark it a no-show after its start time. Secretaries assigned to
   specific doctors only see and book those doctors.
 
+### Any number of doctors
+
+Nothing assumes a doctor count. Every screen adapts:
+
+- **1 doctor:** the public page skips the doctor step; Today, Calendar, walk-ins and Settings show
+  no doctor pickers. Doctors can use Today (check-in, walk-ins, vitals), so a solo practice with
+  no secretary works end to end.
+- **2 or more:** a doctor step on the booking page, an "All doctors" filter on Today and Calendar,
+  one calendar column per doctor, a doctor picker for walk-ins (defaulting to yourself if you are
+  a doctor) and in Settings, and optional secretary-to-doctor assignments in Staff.
+- Each doctor has their own schedule, slots, queue numbering (starting at 1 each day) and
+  "Call next". `apps/api/test/clinic-sizes.test.ts` runs the whole flow (public booking, calendar,
+  check-in, walk-in, queue, call next) for clinics with 1, 2 and 5 doctors.
+
 ### Check-in and live queue
 
-- **Today** (secretary home): today's appointments grouped into waiting, in consult, upcoming,
+- **Today** (secretary home; doctors can use it too): today's appointments grouped into waiting, in consult, upcoming,
   done and cancelled/no-show, with counts. Check in a booked patient (confirm birthdate, sex,
   allergies and conditions; record vitals) or add a walk-in. Late patients can be marked no-show.
 - **Queue numbers** are per doctor per day, assigned under the doctor-day lock and backed by a

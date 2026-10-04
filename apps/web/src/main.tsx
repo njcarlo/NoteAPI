@@ -56,7 +56,7 @@ const router = createBrowserRouter([
       {
         path: 'today',
         element: (
-          <RequireAccess role="secretary">
+          <RequireAccess permission="queue:manage">
             <TodayPage />
           </RequireAccess>
         ),

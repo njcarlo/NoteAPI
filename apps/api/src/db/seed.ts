@@ -27,6 +27,8 @@ import { DRUGS } from './seed-data/drugs';
 export const SEED_ACCOUNTS = {
   doctor: { email: 'doctor@sample.clinic', password: 'DemoDoctor#2026' },
   doctor2: { email: 'doctor2@sample.clinic', password: 'DemoDoctor#2026' },
+  doctor3: { email: 'doctor3@sample.clinic', password: 'DemoDoctor#2026' },
+  soloDoctor: { email: 'solo@sample.clinic', password: 'DemoDoctor#2026' },
   secretary: { email: 'secretary@sample.clinic', password: 'DemoSecretary#2026' },
   imusSecretary: { email: 'imus.secretary@sample.clinic', password: 'DemoSecretary#2026' },
   platform: { email: 'platform@sample.clinic', password: 'DemoPlatform#2026' },
@@ -86,7 +88,7 @@ try {
   };
   const {
     clinic,
-    userIds: [doctorId, doctor2Id],
+    userIds: [doctorId, doctor2Id, doctor3Id],
   } = await provisionClinic(
     db,
     {
@@ -110,6 +112,17 @@ try {
         doctor: { specialty: 'Pediatrics', prcNo: '0000002', ptrNo: 'DEMO-DAS-0000002' },
       },
       {
+        name: 'Grace Demo Lim, MD',
+        email: SEED_ACCOUNTS.doctor3.email,
+        password: SEED_ACCOUNTS.doctor3.password,
+        roles: ['doctor'],
+        doctor: {
+          specialty: 'Obstetrics and Gynecology',
+          prcNo: '0000003',
+          ptrNo: 'DEMO-DAS-0000003',
+        },
+      },
+      {
         name: 'Ana Demo Reyes',
         email: SEED_ACCOUNTS.secretary.email,
         password: SEED_ACCOUNTS.secretary.password,
@@ -119,6 +132,39 @@ try {
   );
   const doctor = { id: doctorId as string };
   const clinicId = clinic.id;
+
+  // A solo practice: one doctor who is also the admin and runs the front desk. No secretary.
+  const {
+    clinic: solo,
+    userIds: [soloDoctorId],
+  } = await provisionClinic(
+    db,
+    {
+      slug: 'sample-solo-practice',
+      name: 'Sample Solo Practice',
+      address: 'Room 2, Sample Arcade, Gen. Trias, Cavite',
+      contactNumber: '+639170000077',
+    },
+    [
+      {
+        name: 'Ramon Demo Bautista, MD',
+        email: SEED_ACCOUNTS.soloDoctor.email,
+        password: SEED_ACCOUNTS.soloDoctor.password,
+        roles: ['admin', 'doctor'],
+        doctor: { specialty: 'Internal Medicine', prcNo: '0000004', ptrNo: 'DEMO-GT-0000004' },
+      },
+    ],
+  );
+  await db.insert(schedules).values(
+    [1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+      clinicId: solo.id,
+      doctorId: soloDoctorId as string,
+      dayOfWeek,
+      startTime: '09:00',
+      endTime: '16:00',
+      slotMinutes: 20,
+    })),
+  );
 
   // Dr. Santos also holds clinic hours in Imus, as a doctor only (another admin runs it).
   const { clinic: imus } = await provisionClinic(
@@ -189,6 +235,7 @@ try {
         block(doctor.id, day, '13:00', '17:00', 15),
       ]),
       ...[1, 3, 5].map((day) => block(doctor2Id as string, day, '13:00', '17:00', 20)),
+      ...[2, 4].map((day) => block(doctor3Id as string, day, '09:00', '15:00', 30)),
     ]);
 
   const drugRows = await db
@@ -409,7 +456,7 @@ try {
     });
   }
 
-  console.log(`Seeded "${clinic.name}" and "${imus.name}". Accounts:`);
+  console.log(`Seeded "${clinic.name}", "${imus.name}" and "${solo.name}". Accounts:`);
   for (const [who, account] of Object.entries(SEED_ACCOUNTS)) {
     console.log(`  ${who.padEnd(14)} ${account.email} / ${account.password}`);
   }

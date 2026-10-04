@@ -28,7 +28,8 @@ interface NavItem {
 }
 
 const CLINIC_NAV: NavItem[] = [
-  { to: '/today', label: t.nav.today, icon: LayoutDashboard, roles: ['secretary'] },
+  // Doctors get Today too: in a solo practice there is no secretary to check patients in.
+  { to: '/today', label: t.nav.today, icon: LayoutDashboard, permission: 'queue:manage' },
   { to: '/queue', label: t.nav.queue, icon: ListOrdered, roles: ['doctor'] },
   { to: '/calendar', label: t.nav.calendar, icon: CalendarDays, permission: 'appointments:manage' },
   { to: '/patients', label: t.nav.patients, icon: Users, permission: 'patients:read' },
