@@ -56,6 +56,13 @@ export function doctorScope(request: FastifyRequest): string[] | null {
   return requireActiveClinic(request).clinic.assignedDoctorIds;
 }
 
+/** The signed-in user's id; they must be a doctor in the active clinic. */
+export function requireDoctor(request: FastifyRequest): string {
+  const { session, clinic } = requireActiveClinic(request);
+  if (!clinic.roles.includes('doctor')) throw forbidden();
+  return session.user.id;
+}
+
 /** Route preHandler: holds the permission in the active clinic. */
 export function requirePermission(permission: Permission) {
   return async (request: FastifyRequest) => {

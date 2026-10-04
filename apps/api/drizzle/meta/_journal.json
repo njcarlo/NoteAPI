@@ -36,6 +36,20 @@
       "when": 1791089151779,
       "tag": "0004_queue_number_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791090423729,
+      "tag": "0005_consultation",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791090424787,
+      "tag": "0006_consultation_security",
+      "breakpoints": true
     }
   ]
 }

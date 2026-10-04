@@ -1,3 +1,4 @@
+import type { ConsultDraft } from '@clinic/shared';
 import {
   boolean,
   date,
@@ -48,6 +49,8 @@ export const visits = pgTable(
     followUpDate: date(),
     finishedAt: timestamp({ withTimezone: true }),
     locked: boolean().notNull().default(false),
+    /** Autosaved consultation in progress; cleared when the visit is finished. */
+    draft: jsonb().$type<ConsultDraft>(),
     ...timestamps,
   },
   (t) => [index().on(t.clinicId, t.patientId)],
@@ -175,5 +178,28 @@ export const rxShareTokens = pgTable('rx_share_tokens', {
   tokenHash: text().notNull().unique(),
   expiresAt: timestamp({ withTimezone: true }).notNull(),
   accessedAt: timestamp({ withTimezone: true }),
+  /** Wrong birthdates entered; the link stops working after a few. */
+  failedAttempts: integer().notNull().default(0),
   ...timestamps,
 });
+
+/** Per-doctor SOAP text snippets applied with one click. */
+export const soapTemplates = pgTable(
+  'soap_templates',
+  {
+    id: id(),
+    clinicId: uuid()
+      .notNull()
+      .references(() => clinics.id),
+    doctorId: uuid()
+      .notNull()
+      .references(() => users.id),
+    name: text().notNull(),
+    subjective: text(),
+    objective: text(),
+    assessment: text(),
+    plan: text(),
+    ...timestamps,
+  },
+  (t) => [index().on(t.clinicId, t.doctorId)],
+);

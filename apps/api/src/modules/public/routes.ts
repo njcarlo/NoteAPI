@@ -1,5 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { ERROR_CODES } from '@clinic/shared';
+import { AppError } from '../../lib/errors';
 import {
   cancelLookupSchema,
   cancelTokenParams,
@@ -9,6 +11,8 @@ import {
   publicDaySchema,
   publicDaysQuery,
   publicSlotsQuery,
+  rxShareInfoSchema,
+  rxShareOpenSchema,
   slotSchema,
 } from '@clinic/shared';
 import {
@@ -21,6 +25,7 @@ import {
   publicSlots,
   withCancelToken,
 } from './service';
+import { openShare, shareInfo } from '../consult/share';
 import { env } from '../../config/env';
 
 const slugParams = z.object({ slug: z.string().min(1).max(63) });
@@ -94,6 +99,26 @@ export const publicRoutes: FastifyPluginAsyncZod = async (app) => {
     '/cancel/:token',
     { config: read, schema: { params: cancelTokenParams, response: { 200: cancelLookupSchema } } },
     (request) => withCancelToken(request.params.token, request.ip, cancelLookup),
+  );
+
+  app.get(
+    '/rx/:token',
+    { config: read, schema: { params: cancelTokenParams, response: { 200: rxShareInfoSchema } } },
+    (request) => shareInfo(request.params.token, request.ip),
+  );
+
+  app.post(
+    '/rx/:token',
+    { config: write, schema: { params: cancelTokenParams, body: rxShareOpenSchema } },
+    async (request, reply) => {
+      const pdf = await openShare(request.params.token, request.body.birthdate, request.ip);
+      if (!pdf)
+        throw new AppError(403, ERROR_CODES.FORBIDDEN, 'That birthdate does not match our records');
+      return reply
+        .type('application/pdf')
+        .header('content-disposition', 'inline; filename="prescription.pdf"')
+        .send(pdf);
+    },
   );
 
   app.post(

@@ -9,17 +9,8 @@ import {
   vitalsSchema,
   walkInSchema,
 } from '@clinic/shared';
-import { forbidden } from '../../lib/errors';
-import { doctorScope, requireActiveClinic, requirePermission } from '../../plugins/auth';
-import type { FastifyRequest } from 'fastify';
+import { doctorScope, requireDoctor, requirePermission } from '../../plugins/auth';
 import { callPatient, checkIn, getQueue, requeue, updateVitals, walkIn } from './service';
-
-/** The signed-in user, who must be a doctor in the active clinic. */
-function requireDoctor(request: FastifyRequest): string {
-  const { session, clinic } = requireActiveClinic(request);
-  if (!clinic.roles.includes('doctor')) throw forbidden();
-  return session.user.id;
-}
 
 export const queueRoutes: FastifyPluginAsyncZod = async (app) => {
   const manage = requirePermission('queue:manage');

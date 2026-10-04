@@ -21,6 +21,8 @@ const envSchema = z.object({
   LOGIN_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
   PUBLIC_WRITE_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(5),
   TRUST_PROXY: booleanString,
+  STORAGE_DRIVER: z.enum(['local']).default('local'),
+  STORAGE_DIR: z.string().default('./storage'),
 });
 
 export type Env = z.infer<typeof envSchema>;
