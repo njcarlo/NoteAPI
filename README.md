@@ -4,7 +4,7 @@ A clinic-first web app for small clinics and solo doctors in the Philippines. Th
 **Appointment → Check-in → Consultation → Prescription**, with SMS and email notifications. One
 deployment serves many clinics, with strict data isolation between them.
 
-> **Status: Phases 1, 1.5 and 2 (booking) complete.** See [Roadmap](#roadmap).
+> **Status: Phases 1–3 complete (foundation, multi-clinic, booking, check-in and queue).** See [Roadmap](#roadmap).
 
 ## Quick start
 
@@ -171,6 +171,26 @@ immediately.
   another open slot, cancel it, or mark it a no-show after its start time. Secretaries assigned to
   specific doctors only see and book those doctors.
 
+### Check-in and live queue
+
+- **Today** (secretary home): today's appointments grouped into waiting, in consult, upcoming,
+  done and cancelled/no-show, with counts. Check in a booked patient (confirm birthdate, sex,
+  allergies and conditions; record vitals) or add a walk-in. Late patients can be marked no-show.
+- **Queue numbers** are per doctor per day, assigned under the doctor-day lock and backed by a
+  unique index; a concurrency test checks four simultaneous check-ins get 1–4.
+- **Vitals** (BP, temperature, heart and respiratory rate, weight, height, O₂ saturation) are
+  validated against plausible ranges and stored on the visit. Queue and vitals endpoints select
+  only vitals columns, so secretaries never receive SOAP notes; vitals lock with the visit.
+- **Doctor queue**: patients in queue order with age, sex, allergies (red) and vitals; "Call next"
+  takes the lowest number (row-locked so two clicks cannot call the same patient), "Call" picks a
+  specific patient, and "Return to queue" undoes a call.
+- **Live updates** use Postgres `LISTEN/NOTIFY` and Server-Sent Events. Every appointment change
+  runs `pg_notify` inside its transaction, so the event fires only on commit and reaches every API
+  instance. `/api/events` streams to signed-in staff of that clinic only (and only for their
+  assigned doctors). Events carry ids, never patient data; screens refetch. Streams send a
+  heartbeat every 25 s and close after 30 minutes so the browser reconnects and the session is
+  re-checked. The sidebar shows a live/reconnecting indicator.
+
 ### Auth and sessions
 
 - argon2id password hashes; constant-time handling for unknown emails.
@@ -238,12 +258,12 @@ as `09XXXXXXXXX` or `+639XXXXXXXXX` and stored as E.164. All UI copy lives in
 | 1     | Monorepo, schema, auth, RBAC, tenant scoping, audit, app shell                     | Done    |
 | 1.5   | Multi-clinic memberships, clinic switcher, platform console, secretary assignments | Done    |
 | 2     | Schedules, slot generation, public booking, staff calendar, cancel links           | Done    |
-| 3     | Today dashboard, check-in with vitals, SSE queue                                   | Next    |
-| 4     | Consultation, SOAP, prescriptions, PDF, share links, amendments                    | Planned |
+| 3     | Today dashboard, check-in with vitals, SSE queue                                   | Done    |
+| 4     | Consultation, SOAP, prescriptions, PDF, share links, amendments                    | Next    |
 | 5     | Notifications: pg-boss worker, SMS/email adapters, reminders, opt-out              | Planned |
 | 6     | Hardening, Playwright happy path, Google Cloud deployment                          | Planned |
 
-The Today and Queue pages show a "not available yet" state until Phase 3. Settings currently
+Calling a patient puts them "in consult"; the consultation screen itself arrives in Phase 4. Settings currently
 covers doctor schedules; clinic profile, doctor credentials, templates and favorites follow in later
 phases. Booking confirmations and reminders by SMS/email arrive in Phase 5; until then the
 confirmation screen shows the reference code and cancel link.

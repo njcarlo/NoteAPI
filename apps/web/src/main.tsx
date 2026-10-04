@@ -10,15 +10,15 @@ import { PatientDetailPage } from '@/features/patients/PatientDetailPage';
 import { PatientFormPage } from '@/features/patients/PatientFormPage';
 import { PatientsPage } from '@/features/patients/PatientsPage';
 import { PlatformPage } from '@/features/platform/PlatformPage';
+import { QueuePage } from '@/features/queue/QueuePage';
+import { TodayPage } from '@/features/queue/TodayPage';
 import { BookingPage } from '@/features/public/BookingPage';
 import { CancelPage } from '@/features/public/CancelPage';
 import { PrivacyPage } from '@/features/public/PrivacyPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
-import { t } from '@/i18n';
 import { AppShell } from '@/layouts/AppShell';
 import { ApiError } from '@/lib/api';
-import { ComingSoonPage } from '@/pages/ComingSoonPage';
 import { HomeRedirect } from '@/pages/HomeRedirect';
 import { LoginPage } from '@/pages/LoginPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -57,7 +57,7 @@ const router = createBrowserRouter([
         path: 'today',
         element: (
           <RequireAccess role="secretary">
-            <ComingSoonPage title={t.nav.today} />
+            <TodayPage />
           </RequireAccess>
         ),
       },
@@ -65,7 +65,7 @@ const router = createBrowserRouter([
         path: 'queue',
         element: (
           <RequireAccess role="doctor">
-            <ComingSoonPage title={t.nav.queue} />
+            <QueuePage />
           </RequireAccess>
         ),
       },

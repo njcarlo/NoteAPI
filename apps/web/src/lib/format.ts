@@ -44,3 +44,27 @@ export const dateLabel = (date: string, style: 'long' | 'short' = 'short') =>
   (style === 'long' ? longDateFormat : shortDateFormat).format(new Date(`${date}T00:00:00Z`));
 
 export const todayManila = () => todayIn(CLINIC_TIMEZONE);
+
+interface VitalsLike {
+  bpSystolic: number | null;
+  bpDiastolic: number | null;
+  temperatureC: number | null;
+  heartRate: number | null;
+  o2Sat: number | null;
+  weightKg: number | null;
+}
+
+/** Compact one-line vitals, e.g. "BP 120/80 · T 36.8° · HR 78 · SpO₂ 98% · 62.5 kg". */
+export function vitalsSummary(v: VitalsLike): string | null {
+  const parts = [
+    v.bpSystolic != null && v.bpDiastolic != null && `BP ${v.bpSystolic}/${v.bpDiastolic}`,
+    v.temperatureC != null && `T ${v.temperatureC}°`,
+    v.heartRate != null && `HR ${v.heartRate}`,
+    v.o2Sat != null && `SpO₂ ${v.o2Sat}%`,
+    v.weightKg != null && `${v.weightKg} kg`,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : null;
+}
+
+export const minutesSince = (iso: string | null, now: Date) =>
+  iso ? Math.max(0, Math.floor((now.getTime() - new Date(iso).getTime()) / 60_000)) : 0;

@@ -22,6 +22,20 @@
       "when": 1791081753485,
       "tag": "0002_booking",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791089138827,
+      "tag": "0003_queue",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791089151779,
+      "tag": "0004_queue_number_unique",
+      "breakpoints": true
     }
   ]
 }

@@ -297,6 +297,7 @@ try {
         reason: 'Consultation',
         referenceCode: referenceCode(),
         queueNumber: a.queue ?? null,
+        queueDate: a.queue ? today : null,
         arrivedAt: a.queue ? slot(today, a.time).startAt : null,
       })),
     )
@@ -327,6 +328,7 @@ try {
         reason: 'Consultation',
         referenceCode: referenceCode(),
         queueNumber: i + 1,
+        queueDate: addDays(today, -p.daysAgo),
         arrivedAt: slot(addDays(today, -p.daysAgo), '08:55').startAt,
       })),
     )

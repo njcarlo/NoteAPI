@@ -14,6 +14,7 @@ export * from './schemas/platform';
 export * from './schemas/schedules';
 export * from './schemas/appointments';
 export * from './schemas/public';
+export * from './schemas/queue';
 
 export interface Paginated<T> {
   items: T[];

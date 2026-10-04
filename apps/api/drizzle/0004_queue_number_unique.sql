@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "appointments_doctor_id_queue_date_queue_number_index" ON "appointments" USING btree ("doctor_id","queue_date","queue_number");

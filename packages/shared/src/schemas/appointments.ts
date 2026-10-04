@@ -28,6 +28,7 @@ export const appointmentSchema = z.object({
   reason: z.string().nullable(),
   referenceCode: z.string(),
   queueNumber: z.number().nullable(),
+  arrivedAt: z.string().nullable(),
 });
 export type Appointment = z.infer<typeof appointmentSchema>;
 

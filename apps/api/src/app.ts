@@ -11,10 +11,12 @@ import { authRoutes } from './modules/auth/routes';
 import { patientRoutes } from './modules/patients/routes';
 import { platformRoutes } from './modules/platform/routes';
 import { publicRoutes } from './modules/public/routes';
+import { queueRoutes } from './modules/queue/routes';
 import { doctorRoutes } from './modules/scheduling/routes';
 import { staffRoutes } from './modules/staff/routes';
 import authPlugin from './plugins/auth';
 import { registerErrorHandling } from './plugins/errors';
+import eventsPlugin from './plugins/events';
 import { registerSecurity } from './plugins/security';
 
 /** Request logs carry method, path (no query string, which may hold search terms) and status only. */
@@ -49,6 +51,8 @@ export async function buildApp() {
   await app.register(doctorRoutes, { prefix: '/api/doctors' });
   await app.register(appointmentRoutes, { prefix: '/api/appointments' });
   await app.register(publicRoutes, { prefix: '/api/public' });
+  await app.register(queueRoutes, { prefix: '/api' });
+  await app.register(eventsPlugin);
 
   return app;
 }

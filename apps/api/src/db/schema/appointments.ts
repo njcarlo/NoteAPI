@@ -1,4 +1,14 @@
-import { index, integer, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import {
+  date,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
 import { id, timestamps } from './_shared';
 import { clinics } from './clinics';
 import { appointmentSourceEnum, appointmentStatusEnum, appointmentTypeEnum } from './enums';
@@ -27,6 +37,8 @@ export const appointments = pgTable(
     referenceCode: varchar({ length: 12 }).notNull().unique(),
     cancelTokenHash: text().unique(),
     queueNumber: integer(),
+    /** Clinic-local day the queue number belongs to (set at check-in). */
+    queueDate: date(),
     arrivedAt: timestamp({ withTimezone: true }),
     ...timestamps,
   },
@@ -34,5 +46,6 @@ export const appointments = pgTable(
     index().on(t.clinicId, t.startAt),
     index().on(t.clinicId, t.doctorId, t.startAt),
     index().on(t.patientId),
+    uniqueIndex().on(t.doctorId, t.queueDate, t.queueNumber),
   ],
 );

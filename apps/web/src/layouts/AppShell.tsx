@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { applySession, useSelectClinic, useSession } from '@/auth/session';
 import { t } from '@/i18n';
 import { api } from '@/lib/api';
+import { useLiveUpdates } from '@/lib/live';
 import { cn } from '@/lib/utils';
 import { homePathFor, navFor } from './nav';
 
@@ -18,6 +19,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const selectClinic = useSelectClinic();
+  const live = useLiveUpdates(activeClinic?.id ?? null);
   const logout = useMutation({
     mutationFn: () => api<void>('/auth/logout', { method: 'POST' }),
     onSettled: () => applySession(queryClient, null),
@@ -65,6 +67,14 @@ export function AppShell() {
             {user.name}
             {activeClinic && ` · ${activeClinic.roles.map((r) => t.roles[r]).join(', ')}`}
           </p>
+          {live !== 'off' && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span
+                className={cn('size-2 rounded-full', live === 'live' ? 'bg-success' : 'bg-warning')}
+              />
+              {live === 'live' ? t.queue.live : t.queue.reconnecting}
+            </p>
+          )}
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:overflow-visible">
           {navFor(user, activeClinic).map(({ to, label, icon: Icon }) => (

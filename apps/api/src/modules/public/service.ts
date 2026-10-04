@@ -18,6 +18,7 @@ import { db } from '../../db/client';
 import { appointments, clinics, patients, schedules, users } from '../../db/schema';
 import { withTenant, type TenantScope } from '../../db/tenant';
 import { sha256 } from '../../lib/crypto';
+import { publishAppointmentsChanged } from '../../lib/events';
 import { AppError, badRequest, conflict, notFound } from '../../lib/errors';
 import { iso } from '../../lib/sql';
 import { insertAppointment } from '../appointments/service';
@@ -257,5 +258,6 @@ export async function cancelByToken(t: TenantScope, appointmentId: string): Prom
     entityId: appointmentId,
     metadata: { via: 'link' },
   });
+  await publishAppointmentsChanged(t, appointment.doctorId);
   return cancelLookup(t, appointmentId);
 }

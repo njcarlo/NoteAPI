@@ -10,6 +10,7 @@ import {
 import { appointments, patients, users } from '../../db/schema';
 import type { TenantScope } from '../../db/tenant';
 import { randomToken, sha256 } from '../../lib/crypto';
+import { publishAppointmentsChanged } from '../../lib/events';
 import {
   badRequest,
   conflict,
@@ -59,6 +60,7 @@ const toAppointment = ({ appointment: a, doctorName, patient }: Row): Appointmen
   reason: a.reason,
   referenceCode: a.referenceCode,
   queueNumber: a.queueNumber,
+  arrivedAt: a.arrivedAt && iso(a.arrivedAt),
 });
 
 function baseQuery(t: TenantScope) {
@@ -120,8 +122,14 @@ export async function insertAppointment(
     endAt: Date;
     reason: string | null;
     source: AppointmentSource;
+    /** Walk-ins arrive immediately with a queue number. */
+    walkIn?: { queueNumber: number; queueDate: string; arrivedAt: Date };
   },
 ): Promise<{ id: string; referenceCode: string; cancelToken: string }> {
+  const { walkIn, ...base } = values;
+  const record = walkIn
+    ? { ...base, ...walkIn, type: 'walk_in' as const, status: 'arrived' as const }
+    : { ...base, type: 'scheduled' as const };
   const cancelToken = randomToken();
   for (let attempt = 0; ; attempt++) {
     const code = referenceCode();
@@ -132,8 +140,7 @@ export async function insertAppointment(
           .insert(appointments)
           .values(
             t.values({
-              ...values,
-              type: 'scheduled' as const,
+              ...record,
               referenceCode: code,
               cancelTokenHash: sha256(cancelToken),
             }),
@@ -145,8 +152,9 @@ export async function insertAppointment(
         action: 'appointment.create',
         entityType: 'appointment',
         entityId: row.id,
-        metadata: { source: values.source, doctorId: values.doctorId },
+        metadata: { source: values.source, doctorId: values.doctorId, walkIn: Boolean(walkIn) },
       });
+      await publishAppointmentsChanged(t, values.doctorId);
       return { id: row.id, referenceCode: code, cancelToken };
     } catch (error) {
       if (isExclusionViolation(error)) throw overlapError();
@@ -230,6 +238,8 @@ export async function moveAppointment(
     entityId: id,
     metadata: { from: iso(current.startAt), to: iso(startAt), doctorId },
   });
+  await publishAppointmentsChanged(t, doctorId);
+  if (doctorId !== current.doctorId) await publishAppointmentsChanged(t, current.doctorId);
   return getAppointment(t, id, scope);
 }
 
@@ -259,5 +269,6 @@ export async function setAppointmentStatus(
     entityType: 'appointment',
     entityId: id,
   });
+  await publishAppointmentsChanged(t, current.doctorId);
   return getAppointment(t, id, scope);
 }
