@@ -1,4 +1,5 @@
-import { AlertTriangle, Megaphone, Undo2 } from 'lucide-react';
+import { AlertTriangle, Megaphone, Stethoscope, Undo2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
 import { useState } from 'react';
 import type { QueueItem } from '@clinic/shared';
 import { PageHeader } from '@/components/PageHeader';
@@ -20,6 +21,9 @@ export function QueuePage() {
   const now = useNow();
   const queue = useQueue(user?.id);
   const action = useQueueAction();
+  const navigate = useNavigate();
+  const callAndOpen = (a: { kind: 'next' } | { kind: 'call'; id: string }) =>
+    action.mutate(a, { onSuccess: (item) => navigate(`/consult/${item.appointmentId}`) });
   const [vitalsFor, setVitalsFor] = useState<QueueItem | null>(null);
   const q = t.queue;
 
@@ -42,7 +46,7 @@ export function QueuePage() {
           <Button
             size="lg"
             disabled={action.isPending || !queue.data?.waiting.length}
-            onClick={() => action.mutate({ kind: 'next' })}
+            onClick={() => callAndOpen({ kind: 'next' })}
           >
             <Megaphone />
             {q.callNext}
@@ -98,7 +102,12 @@ export function QueuePage() {
                       </Badge>
                     )}
                     <p className="mt-3 text-sm">{vitalsSummary(item.vitals) ?? t.vitals.none}</p>
-                    <p className="mt-3 text-xs text-muted-foreground">{q.consultLater}</p>
+                    <Button asChild className="mt-4">
+                      <Link to={`/consult/${item.appointmentId}`}>
+                        <Stethoscope />
+                        {t.consult.openConsult}
+                      </Link>
+                    </Button>
                   </Card>
                 ))
               )}
@@ -165,9 +174,7 @@ export function QueuePage() {
                               size="sm"
                               variant="outline"
                               disabled={action.isPending}
-                              onClick={() =>
-                                action.mutate({ kind: 'call', id: item.appointmentId })
-                              }
+                              onClick={() => callAndOpen({ kind: 'call', id: item.appointmentId })}
                             >
                               {q.call}
                             </Button>

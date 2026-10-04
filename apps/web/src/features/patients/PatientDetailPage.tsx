@@ -8,12 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSession } from '@/auth/session';
 import { t } from '@/i18n';
 import { ageFrom, fullName, phone } from '@/lib/format';
+import { usePatientVisits } from '@/features/consult/api';
+import { dateLabel } from '@/lib/format';
 import { usePatient } from './api';
 
 export function PatientDetailPage() {
   const { id } = useParams();
   const { can } = useSession();
   const query = usePatient(id);
+  const visits = usePatientVisits(id ?? '', Boolean(id) && can('clinical:read'));
 
   if (query.isLoading) return <TableSkeleton rows={5} />;
   if (query.isError || !query.data)
@@ -82,6 +85,40 @@ export function PatientDetailPage() {
           </dl>
         </CardContent>
       </Card>
+      {can('clinical:read') && (
+        <Card className="mt-6 max-w-2xl">
+          <CardHeader>
+            <CardTitle className="text-base">{t.consult.history}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!visits.data?.length ? (
+              <p className="text-sm text-muted-foreground">{t.consult.noHistory}</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {visits.data.map((v) => (
+                  <li key={v.id}>
+                    <Link
+                      to={`/consult/${v.appointmentId}`}
+                      className="block py-3 text-sm hover:text-primary"
+                    >
+                      <span className="flex justify-between text-xs text-muted-foreground">
+                        <span>{dateLabel(v.date, 'long')}</span>
+                        <span>{v.doctorName}</span>
+                      </span>
+                      <span className="block font-medium">{v.assessment ?? '—'}</span>
+                      {v.medicines.length > 0 && (
+                        <span className="block text-xs text-muted-foreground">
+                          {v.medicines.join(', ')}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }

@@ -4,7 +4,7 @@ A clinic-first web app for small clinics and solo doctors in the Philippines. Th
 **Appointment → Check-in → Consultation → Prescription**, with SMS and email notifications. One
 deployment serves many clinics, with strict data isolation between them.
 
-> **Status: Phases 1–3 complete (foundation, multi-clinic, booking, check-in and queue).** See [Roadmap](#roadmap).
+> **Status: Phases 1–4 complete (foundation, multi-clinic, booking, check-in and queue, consultation and prescriptions).** See [Roadmap](#roadmap).
 
 ## Quick start
 
@@ -211,6 +211,41 @@ Nothing assumes a doctor count. Every screen adapts:
   heartbeat every 25 s and close after 30 minutes so the browser reconnects and the session is
   re-checked. The sidebar shows a live/reconnecting indicator.
 
+### Consultation and prescriptions
+
+- **Consultation screen** (`/consult/:appointmentId`, tablet-friendly): patient summary with age,
+  sex, **allergies in red**, conditions and past visits; today's vitals (editable); SOAP notes
+  with per-doctor templates; prescription builder; follow-up date with an optional booked slot.
+  "Call next" opens it directly. Drafts autosave 1.5 s after the last change and survive reloads;
+  **Ctrl/Cmd + Enter** finishes the visit.
+- **Prescription builder:** typeahead over the drug list (generic or brand; arrow keys + Enter),
+  free-text fallback, per-doctor favorites (apply or save), and a non-blocking **allergy warning**
+  that must be acknowledged. Matching (`packages/shared/src/allergy.ts`) covers exact names,
+  combination products, drug classes (penicillin → amoxicillin/co-amoxiclav, sulfa →
+  cotrimoxazole, NSAIDs, cephalosporins, macrolides, quinolones…) and near-spellings. The server
+  re-checks and returns `409 ALLERGY_WARNING` if unacknowledged; acknowledgement is audited.
+- **Finish visit** is one transaction: notes and vitals saved, prescription and items created,
+  follow-up appointment booked (if a slot was chosen), appointment marked done, visit locked,
+  draft cleared, queue updated live. The PDF is rendered right after commit (and re-rendered on
+  demand if missing), so a PDF problem never loses a visit.
+- **Rx PDF** (A5, pdfkit): doctor name and specialty, clinic name, address and contact; patient
+  name, age, sex, address and date; items with the **generic name first** and brand in
+  parentheses, strength, form, quantity and sig; signature line with PRC, PTR and (if present) S2
+  numbers. Credentials are edited in Settings → Doctor credentials (admins) and are per clinic.
+- **Files** go through a storage interface (`apps/api/src/lib/storage.ts`); this MVP ships the
+  local-disk driver (`STORAGE_DIR`). PDFs are never public: they are streamed by
+  `/api/prescriptions/:id/pdf` (doctors) or by a share link.
+- **Share links** (`/rx/:token`): random token, only its hash stored, valid 14 days. The page
+  shows only the clinic name and dates until the patient enters their birthdate; five wrong
+  birthdates disable the link. Every open and every denial is audited.
+- **Amendments:** a finished visit is read-only. Its doctor can amend a SOAP field or the
+  follow-up date with a required reason; the old value, new value, reason, author and time are
+  stored in `visit_amendments`, shown on the visit, and audited.
+- **Access:** secretaries cannot open consultations, SOAP notes, prescriptions or PDFs (API
+  returns 403; the UI shows "not found"). Any doctor in the clinic can read a visit; only the
+  consulting doctor can edit or amend it. The app's database role cannot delete visits or
+  prescriptions.
+
 ### Auth and sessions
 
 - argon2id password hashes; constant-time handling for unknown emails.
@@ -279,13 +314,13 @@ as `09XXXXXXXXX` or `+639XXXXXXXXX` and stored as E.164. All UI copy lives in
 | 1.5   | Multi-clinic memberships, clinic switcher, platform console, secretary assignments | Done    |
 | 2     | Schedules, slot generation, public booking, staff calendar, cancel links           | Done    |
 | 3     | Today dashboard, check-in with vitals, SSE queue                                   | Done    |
-| 4     | Consultation, SOAP, prescriptions, PDF, share links, amendments                    | Next    |
-| 5     | Notifications: pg-boss worker, SMS/email adapters, reminders, opt-out              | Planned |
+| 4     | Consultation, SOAP, prescriptions, PDF, share links, amendments                    | Done    |
+| 5     | Notifications: pg-boss worker, SMS/email adapters, reminders, opt-out              | Next    |
 | 6     | Hardening, Playwright happy path, Google Cloud deployment                          | Planned |
 
-Calling a patient puts them "in consult"; the consultation screen itself arrives in Phase 4. Settings currently
-covers doctor schedules; clinic profile, doctor credentials, templates and favorites follow in later
-phases. Booking confirmations and reminders by SMS/email arrive in Phase 5; until then the
+Settings covers doctor schedules and credentials; the clinic profile, logo and signature images,
+and notification templates follow in Phase 5. A Cloud Storage driver for files is planned with
+the Phase 6 deployment work. Booking confirmations and reminders by SMS/email arrive in Phase 5; until then the
 confirmation screen shows the reference code and cancel link.
 
 ## Hosting plan (Google Cloud)

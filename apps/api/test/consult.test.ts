@@ -395,6 +395,21 @@ describe('amendments', () => {
   });
 });
 
+describe('visit history', () => {
+  it('lists a patient’s finished visits with medicines, for doctors only', async () => {
+    const { appointmentId, patient } = await patientInConsult();
+    await finish(appointmentId, finishBody({ allergyAcknowledged: true }));
+    const res = await doctor.agent.get(`/api/patients/${patient.id}/visits`);
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toMatchObject({
+      appointmentId,
+      assessment: 'Acute bronchitis',
+      medicines: ['Amoxicillin 500 mg', 'Paracetamol 500 mg'],
+    });
+    expect((await secretary.agent.get(`/api/patients/${patient.id}/visits`)).status).toBe(403);
+  });
+});
+
 describe('prescribing helpers', () => {
   it('searches drugs by generic or brand name', async () => {
     const res = await doctor.agent.get('/api/drugs?q=amox');

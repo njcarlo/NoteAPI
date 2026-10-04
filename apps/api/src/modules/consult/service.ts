@@ -3,6 +3,7 @@ import {
   ageOn,
   ERROR_CODES,
   findAllergyMatches,
+  formatPhMobile,
   RX_SHARE_DAYS,
   utcToZoned,
   type AmendmentInput,
@@ -143,7 +144,7 @@ async function loadVisit(t: TenantScope, appointmentId: string): Promise<Visit> 
 async function loadHistory(
   t: TenantScope,
   patientId: string,
-  excludeVisitId: string,
+  excludeVisitId: string | null,
 ): Promise<VisitSummary[]> {
   const clinic = await getClinic(t);
   const rows = await t.tx
@@ -156,7 +157,7 @@ async function loadHistory(
         visits,
         eq(visits.patientId, patientId),
         eq(visits.locked, true),
-        ne(visits.id, excludeVisitId),
+        excludeVisitId ? ne(visits.id, excludeVisitId) : undefined,
       ),
     )
     .orderBy(desc(appointments.startAt))
@@ -186,6 +187,17 @@ async function loadHistory(
   }));
 }
 
+/** Finished visits of a patient, newest first (doctors only). */
+export async function patientVisits(t: TenantScope, patientId: string): Promise<VisitSummary[]> {
+  const [patient] = await t.tx
+    .select({ id: patients.id })
+    .from(patients)
+    .where(t.where(patients, eq(patients.id, patientId)));
+  if (!patient) throw notFound('Patient');
+  await t.audit({ action: 'visit.list', entityType: 'patient', entityId: patientId });
+  return loadHistory(t, patientId, null);
+}
+
 /** The consultation screen's data. Any doctor in the clinic may read; edits are limited below. */
 export async function getConsult(
   t: TenantScope,
@@ -200,15 +212,13 @@ export async function getConsult(
   if (!existing) {
     if (appointment.status !== 'in_consult' || appointment.doctorId !== userId)
       throw notFound('Visit');
-    await t.tx
-      .insert(visits)
-      .values(
-        t.values({
-          appointmentId,
-          patientId: appointment.patientId,
-          doctorId: appointment.doctorId,
-        }),
-      );
+    await t.tx.insert(visits).values(
+      t.values({
+        appointmentId,
+        patientId: appointment.patientId,
+        doctorId: appointment.doctorId,
+      }),
+    );
   }
   const [patient] = await t.tx
     .select()
@@ -431,18 +441,16 @@ export async function amendVisit(
     .update(visits)
     .set({ [column]: newValue })
     .where(t.where(visits, eq(visits.id, visitId)));
-  await t.tx
-    .insert(visitAmendments)
-    .values(
-      t.values({
-        visitId,
-        authorId: userId,
-        field: input.field,
-        oldValue,
-        newValue,
-        reason: input.reason,
-      }),
-    );
+  await t.tx.insert(visitAmendments).values(
+    t.values({
+      visitId,
+      authorId: userId,
+      field: input.field,
+      oldValue,
+      newValue,
+      reason: input.reason,
+    }),
+  );
   await t.audit({
     action: 'visit.amend',
     entityType: 'visit',
@@ -486,7 +494,11 @@ export async function prescriptionPdf(t: TenantScope, prescriptionId: string): P
   const issued = utcToZoned(rx.issuedAt, clinic.timezone).date;
 
   const pdf = await renderPrescriptionPdf({
-    clinic: { name: clinic.name, address: clinic.address, contactNumber: clinic.contactNumber },
+    clinic: {
+      name: clinic.name,
+      address: clinic.address,
+      contactNumber: clinic.contactNumber && formatPhMobile(clinic.contactNumber),
+    },
     doctor: {
       name: doctor.name,
       specialty: doctor.profile?.specialty ?? null,

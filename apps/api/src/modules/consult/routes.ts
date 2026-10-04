@@ -16,6 +16,7 @@ import {
   soapTemplateInputSchema,
   soapTemplateSchema,
   visitSchema,
+  visitSummarySchema,
 } from '@clinic/shared';
 import { forbidden } from '../../lib/errors';
 import { requireActiveClinic, requireDoctor, requirePermission } from '../../plugins/auth';
@@ -35,6 +36,7 @@ import {
   createShareLink,
   finishVisit,
   getConsult,
+  patientVisits,
   prescriptionPdf,
   saveDraft,
 } from './service';
@@ -52,6 +54,15 @@ export const consultRoutes: FastifyPluginAsyncZod = async (app) => {
       const { session } = requireActiveClinic(request);
       return request.tenant((t) => getConsult(t, request.params.id, session.user.id));
     },
+  );
+
+  app.get(
+    '/patients/:id/visits',
+    {
+      preHandler: readClinical,
+      schema: { params: idParams, response: { 200: z.array(visitSummarySchema) } },
+    },
+    (request) => request.tenant((t) => patientVisits(t, request.params.id)),
   );
 
   app.put(

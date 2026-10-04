@@ -6,6 +6,7 @@ import { SessionProvider } from '@/auth/session';
 import { RequireAccess } from '@/components/RequirePermission';
 import { AuditPage } from '@/features/audit/AuditPage';
 import { CalendarPage } from '@/features/calendar/CalendarPage';
+import { ConsultPage } from '@/features/consult/ConsultPage';
 import { PatientDetailPage } from '@/features/patients/PatientDetailPage';
 import { PatientFormPage } from '@/features/patients/PatientFormPage';
 import { PatientsPage } from '@/features/patients/PatientsPage';
@@ -15,6 +16,7 @@ import { TodayPage } from '@/features/queue/TodayPage';
 import { BookingPage } from '@/features/public/BookingPage';
 import { CancelPage } from '@/features/public/CancelPage';
 import { PrivacyPage } from '@/features/public/PrivacyPage';
+import { RxSharePage } from '@/features/public/RxSharePage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { StaffPage } from '@/features/staff/StaffPage';
 import { AppShell } from '@/layouts/AppShell';
@@ -40,10 +42,19 @@ const router = createBrowserRouter([
   { path: '/c/:slug', element: <BookingPage /> },
   { path: '/cancel/:token', element: <CancelPage /> },
   { path: '/privacy', element: <PrivacyPage /> },
+  { path: '/rx/:token', element: <RxSharePage /> },
   {
     element: <AppShell />,
     children: [
       { index: true, element: <HomeRedirect /> },
+      {
+        path: 'consult/:appointmentId',
+        element: (
+          <RequireAccess permission="clinical:read">
+            <ConsultPage />
+          </RequireAccess>
+        ),
+      },
       { path: 'select-clinic', element: <SelectClinicPage /> },
       {
         path: 'platform',
