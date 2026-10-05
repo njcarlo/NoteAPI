@@ -37,8 +37,13 @@ const slugParams = z.object({ slug: z.string().min(1).max(63) });
 
 /** Unauthenticated endpoints for patients. They never use the staff session or its CSRF token. */
 export const publicRoutes: FastifyPluginAsyncZod = async (app) => {
-  const read = { skipCsrfToken: true, rateLimit: { max: 60, timeWindow: '1 minute' } };
+  const read = {
+    public: true,
+    skipCsrfToken: true,
+    rateLimit: { max: 60, timeWindow: '1 minute' },
+  };
   const write = {
+    public: true,
     skipCsrfToken: true,
     rateLimit: { max: env.PUBLIC_WRITE_RATE_LIMIT_PER_MINUTE, timeWindow: '1 minute' },
   };

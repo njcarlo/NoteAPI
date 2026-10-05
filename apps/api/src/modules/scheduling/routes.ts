@@ -17,6 +17,7 @@ import {
   availableSlots,
   deleteException,
   getClinic,
+  getDoctor,
   getSchedule,
   listDoctors,
   replaceSchedule,
@@ -99,6 +100,7 @@ export const doctorRoutes: FastifyPluginAsyncZod = async (app) => {
     (request) => {
       assertDoctorInScope(doctorScope(request), request.params.id);
       return request.tenant(async (t) => {
+        await getDoctor(t, request.params.id);
         const clinic = await getClinic(t);
         const days = await availableSlots(t, {
           doctorId: request.params.id,

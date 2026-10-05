@@ -8,7 +8,7 @@ import { doctorScope, requireActiveClinic } from './auth';
 
 const HEARTBEAT_MS = 25_000;
 /** Streams are closed periodically; EventSource reconnects and the session is re-checked. */
-const MAX_STREAM_MS = 30 * 60_000;
+const MAX_STREAM_MS = env.SSE_MAX_STREAM_SECONDS * 1000;
 
 export default fp(async (app: FastifyInstance) => {
   const listener = postgres(env.DATABASE_URL, { max: 1, onnotice: () => undefined });

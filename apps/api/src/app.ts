@@ -39,13 +39,20 @@ export async function buildApp() {
     bodyLimit: 1_048_576,
   }).withTypeProvider<ZodTypeProvider>();
 
+  // Route inventory, used by the security tests to make sure every route is classified.
+  const routes: { method: string; url: string }[] = [];
+  app.addHook('onRoute', (route) => {
+    for (const method of [route.method].flat())
+      if (method !== 'HEAD') routes.push({ method, url: route.url });
+  });
+  app.decorate('routeList', routes);
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   registerErrorHandling(app);
   await registerSecurity(app);
   await app.register(authPlugin);
 
-  app.get('/api/health', async () => ({ ok: true }));
+  app.get('/api/health', { config: { public: true } }, async () => ({ ok: true }));
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(patientRoutes, { prefix: '/api/patients' });
   await app.register(staffRoutes, { prefix: '/api/staff' });
@@ -64,3 +71,9 @@ export async function buildApp() {
 }
 
 export type App = Awaited<ReturnType<typeof buildApp>>;
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    routeList: { method: string; url: string }[];
+  }
+}

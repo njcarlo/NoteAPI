@@ -41,16 +41,13 @@ describe('clinic profile', () => {
       .send({ name: 'Nope' });
     expect(denied.status).toBe(403);
 
-    const res = await admin.agent
-      .put('/api/clinic')
-      .set('x-csrf-token', admin.csrf)
-      .send({
-        name: 'Renamed Clinic',
-        address: '1 Main St.',
-        contactNumber: '0917 222 3333',
-        email: 'desk@example.com',
-        smsSenderName: 'RENAMED',
-      });
+    const res = await admin.agent.put('/api/clinic').set('x-csrf-token', admin.csrf).send({
+      name: 'Renamed Clinic',
+      address: '1 Main St.',
+      contactNumber: '0917 222 3333',
+      email: 'desk@example.com',
+      smsSenderName: 'RENAMED',
+    });
     expect(res.body).toMatchObject({
       name: 'Renamed Clinic',
       contactNumber: '+639172223333',

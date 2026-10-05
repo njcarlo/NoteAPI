@@ -7,13 +7,15 @@ import { safeEqual } from '../lib/crypto';
 import { AppError, forbidden, unauthenticated } from '../lib/errors';
 import { resolveSession, type ActiveSession } from '../modules/auth/service';
 
-export const SESSION_COOKIE = env.COOKIE_SECURE ? '__Host-sid' : 'sid';
+export const SESSION_COOKIE = env.SESSION_COOKIE_NAME ?? (env.COOKIE_SECURE ? '__Host-sid' : 'sid');
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 declare module 'fastify' {
   interface FastifyContextConfig {
     /** Skip the per-session CSRF token check (the origin check still applies). */
     skipCsrfToken?: boolean;
+    /** Reachable without signing in. Every other route requires a session (checked first). */
+    public?: boolean;
   }
   interface FastifyRequest {
     session: ActiveSession | null;
@@ -108,6 +110,11 @@ export default fp(async (app: FastifyInstance) => {
 
     const token = request.cookies[SESSION_COOKIE];
     if (token) request.session = await resolveSession(token);
+
+    // Private by default: routes must opt in to anonymous access. Unknown paths fall through to 404.
+    if (!request.session && request.routeOptions.url && !request.routeOptions.config.public) {
+      throw unauthenticated();
+    }
 
     // Signed-in unsafe requests must also echo the per-session CSRF token.
     if (

@@ -22,6 +22,7 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: { body: loginSchema, response: { 200: sessionResponseSchema } },
       config: {
+        public: true,
         skipCsrfToken: true,
         rateLimit: { max: env.LOGIN_RATE_LIMIT_PER_MINUTE, timeWindow: '1 minute' },
       },

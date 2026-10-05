@@ -16,6 +16,16 @@ const envSchema = z.object({
   PUBLIC_APP_URL: z.url().default('http://localhost:5173'),
   COOKIE_SECURE: booleanString,
   SESSION_IDLE_MINUTES: z.coerce.number().int().positive().default(720),
+  /**
+   * Session cookie name. Defaults to "__Host-sid" with secure cookies and "sid" otherwise. Behind
+   * Firebase Hosting it must be "__session": that is the only cookie Hosting forwards to Cloud Run.
+   */
+  SESSION_COOKIE_NAME: z
+    .string()
+    .regex(/^[\w-]+$/)
+    .optional(),
+  /** Live-update streams are closed after this long and reconnect (Firebase Hosting allows 60 s). */
+  SSE_MAX_STREAM_SECONDS: z.coerce.number().int().min(10).max(3600).default(1800),
   LOGIN_MAX_FAILURES: z.coerce.number().int().positive().default(5),
   LOGIN_LOCK_MINUTES: z.coerce.number().int().positive().default(15),
   LOGIN_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),

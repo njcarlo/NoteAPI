@@ -84,8 +84,13 @@ export const notificationRoutes: FastifyPluginAsyncZod = async (app) => {
     (request) => request.tenant((t) => listLogs(t, request.query.limit, request.query.offset)),
   );
 
-  const publicRead = { skipCsrfToken: true, rateLimit: { max: 60, timeWindow: '1 minute' } };
+  const publicRead = {
+    public: true,
+    skipCsrfToken: true,
+    rateLimit: { max: 60, timeWindow: '1 minute' },
+  };
   const publicWrite = {
+    public: true,
     skipCsrfToken: true,
     rateLimit: { max: env.PUBLIC_WRITE_RATE_LIMIT_PER_MINUTE, timeWindow: '1 minute' },
   };
