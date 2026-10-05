@@ -74,6 +74,14 @@ export function useFavorites() {
   });
 }
 
+export function useDeleteFavorite() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/rx-favorites/${id}`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rx-favorites'] }),
+  });
+}
+
 export function useSaveFavorite() {
   const queryClient = useQueryClient();
   return useMutation({

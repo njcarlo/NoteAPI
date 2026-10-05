@@ -7,6 +7,7 @@ import {
 import { env } from './config/env';
 import { appointmentRoutes } from './modules/appointments/routes';
 import { auditRoutes } from './modules/audit/routes';
+import { clinicRoutes } from './modules/clinic/routes';
 import { consultRoutes } from './modules/consult/routes';
 import { authRoutes } from './modules/auth/routes';
 import { patientRoutes } from './modules/patients/routes';
@@ -56,6 +57,7 @@ export async function buildApp() {
   await app.register(queueRoutes, { prefix: '/api' });
   await app.register(consultRoutes, { prefix: '/api' });
   await app.register(notificationRoutes, { prefix: '/api' });
+  await app.register(clinicRoutes, { prefix: '/api/clinic' });
   await app.register(eventsPlugin);
 
   return app;

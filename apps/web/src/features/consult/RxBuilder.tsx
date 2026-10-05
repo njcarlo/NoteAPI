@@ -7,7 +7,7 @@ import { Input, Select } from '@/components/ui/input';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { useDrugSearch, useFavorites, useSaveFavorite } from './api';
+import { useDeleteFavorite, useDrugSearch, useFavorites, useSaveFavorite } from './api';
 
 export type DraftItem = RxItemInput & { key: string };
 
@@ -119,6 +119,7 @@ export function RxBuilder({
 }) {
   const favorites = useFavorites();
   const saveFavorite = useSaveFavorite();
+  const deleteFavorite = useDeleteFavorite();
   const [favoriteName, setFavoriteName] = useState<string | null>(null);
   const lastSig = useRef<HTMLInputElement | null>(null);
 
@@ -153,6 +154,29 @@ export function RxBuilder({
               </option>
             ))}
           </Select>
+        )}
+        {(favorites.data?.length ?? 0) > 0 && (
+          <details className="relative self-center">
+            <summary className="cursor-pointer text-xs text-muted-foreground">
+              {c.manageFavorites}
+            </summary>
+            <ul className="absolute right-0 z-10 mt-1 w-60 rounded-md border border-border bg-card p-1 shadow-lg">
+              {favorites.data?.map((f) => (
+                <li key={f.id} className="flex items-center justify-between px-2 py-1 text-sm">
+                  {f.name}
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-destructive"
+                    disabled={deleteFavorite.isPending}
+                    onClick={() => deleteFavorite.mutate(f.id)}
+                  >
+                    {c.deleteFavorite}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </div>
 

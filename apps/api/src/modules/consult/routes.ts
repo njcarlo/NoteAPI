@@ -10,6 +10,7 @@ import {
   drugSchema,
   finishVisitSchema,
   idParams,
+  imageUploadSchema,
   rxFavoriteInputSchema,
   rxFavoriteSchema,
   rxShareResponseSchema,
@@ -30,6 +31,7 @@ import {
   listTemplates,
   saveDoctorProfile,
   searchDrugs,
+  setSignature,
 } from './library';
 import {
   amendVisit,
@@ -239,6 +241,24 @@ export const consultRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { params: idParams, response: { 200: doctorProfileSchema } },
     },
     (request) => request.tenant((t) => getDoctorProfile(t, request.params.id)),
+  );
+
+  app.put(
+    '/doctors/:id/signature',
+    {
+      preHandler: ownOrAdmin,
+      schema: { params: idParams, body: imageUploadSchema, response: { 200: doctorProfileSchema } },
+    },
+    (request) => request.tenant((t) => setSignature(t, request.params.id, request.body)),
+  );
+
+  app.delete(
+    '/doctors/:id/signature',
+    {
+      preHandler: ownOrAdmin,
+      schema: { params: idParams, response: { 200: doctorProfileSchema } },
+    },
+    (request) => request.tenant((t) => setSignature(t, request.params.id, null)),
   );
 
   app.put(

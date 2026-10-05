@@ -7,8 +7,10 @@ import {
   doctorProfileInputSchema,
   type DoctorProfile,
   type DoctorProfileInput,
+  type ImageUpload as ImageBody,
 } from '@clinic/shared';
 import { FormField } from '@/components/FormField';
+import { ImageUpload } from '@/components/ImageUpload';
 import { EmptyState, ErrorState, TableSkeleton } from '@/components/States';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -82,6 +84,13 @@ function CredentialsForm({ doctorId, profile }: { doctorId: string; profile: Doc
       api<DoctorProfile>(`/doctors/${doctorId}/profile`, { method: 'PUT', body }),
     onSuccess: (data) => queryClient.setQueryData(['doctor-profile', doctorId], data),
   });
+  const signature = useMutation({
+    mutationFn: (body: ImageBody | null) =>
+      body
+        ? api<DoctorProfile>(`/doctors/${doctorId}/signature`, { method: 'PUT', body })
+        : api<DoctorProfile>(`/doctors/${doctorId}/signature`, { method: 'DELETE' }),
+    onSuccess: (data) => queryClient.setQueryData(['doctor-profile', doctorId], data),
+  });
   const { errors } = form.formState;
   return (
     <form className="space-y-4" noValidate onSubmit={form.handleSubmit((v) => save.mutate(v))}>
@@ -103,6 +112,21 @@ function CredentialsForm({ doctorId, profile }: { doctorId: string; profile: Doc
         <FormField id="s2No" label={c.s2No}>
           <Input id="s2No" {...form.register('s2No')} />
         </FormField>
+      </div>
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium">{c.signature}</p>
+        <ImageUpload
+          hasImage={profile.hasSignature}
+          disabled={signature.isPending || !profile.prcNo}
+          onUpload={(body) => signature.mutate(body)}
+          onRemove={() => signature.mutate(null)}
+        />
+        <p className="text-xs text-muted-foreground">{c.signatureHint}</p>
+        {signature.isError && (
+          <Alert variant="destructive">
+            {errorMessage(signature.error, t.common.genericError)}
+          </Alert>
+        )}
       </div>
       {save.isSuccess && <Alert variant="success">{c.saved}</Alert>}
       {save.isError && (

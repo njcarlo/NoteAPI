@@ -140,6 +140,7 @@ export const en = {
   settings: {
     title: 'Settings',
     tabs: {
+      clinic: 'Clinic',
       schedules: 'Doctor schedules',
       credentials: 'Doctor credentials',
       notifications: 'Notifications',
@@ -265,6 +266,8 @@ export const en = {
     favorites: 'Favorites',
     applyFavorite: 'Apply favorite…',
     saveFavorite: 'Save as favorite',
+    manageFavorites: 'Manage favorites',
+    deleteFavorite: 'Delete',
     favoriteName: 'Favorite name',
     allergyTitle: 'Possible allergy conflict',
     allergyLine: (drug: string, allergen: string) =>
@@ -316,6 +319,8 @@ export const en = {
     ptrNo: 'PTR no.',
     s2No: 'S2 no. (optional)',
     saved: 'Credentials saved.',
+    signature: 'Signature',
+    signatureHint: 'Optional. A PNG or JPEG of the signature, printed above the signature line.',
   },
   notifications: {
     templatesTitle: 'Message templates',
@@ -366,6 +371,28 @@ export const en = {
     newBooking: (when: string) => `New online booking for ${when}`,
     view: 'View calendar',
     dismiss: 'Dismiss',
+  },
+  clinicSettings: {
+    title: 'Clinic profile',
+    hint: 'Shown on the booking page, prescriptions and messages.',
+    name: 'Clinic name',
+    address: 'Address',
+    contactNumber: 'Contact number',
+    email: 'Clinic email',
+    emailHint: 'New online bookings are emailed here.',
+    smsSenderName: 'SMS sender name',
+    smsSenderHint: 'As registered with your SMS gateway (max 11 letters or digits).',
+    bookingLink: 'Online booking page',
+    saved: 'Clinic profile saved.',
+    logo: 'Logo',
+    logoHint: 'PNG or JPEG, up to 512 KB. Shown on the booking page and prescriptions.',
+  },
+  images: {
+    upload: 'Upload image',
+    replace: 'Replace',
+    remove: 'Remove',
+    tooBig: 'The image must be 512 KB or smaller.',
+    wrongType: 'Use a PNG or JPEG image.',
   },
   notFound: {
     title: 'Page not found',

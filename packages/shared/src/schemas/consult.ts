@@ -229,6 +229,7 @@ export const doctorProfileSchema = z.object({
   prcNo: z.string(),
   ptrNo: z.string().nullable(),
   s2No: z.string().nullable(),
+  hasSignature: z.boolean(),
 });
 export type DoctorProfile = z.infer<typeof doctorProfileSchema>;
 

@@ -19,6 +19,7 @@ export * from './schemas/public';
 export * from './schemas/queue';
 export * from './schemas/consult';
 export * from './schemas/notifications';
+export * from './schemas/clinic';
 
 export interface Paginated<T> {
   items: T[];

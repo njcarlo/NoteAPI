@@ -3,6 +3,7 @@ import type {
   DoctorProfile,
   DoctorProfileInput,
   Drug,
+  ImageUpload,
   RxFavorite,
   rxFavoriteInputSchema,
   SoapTemplate,
@@ -12,7 +13,9 @@ import type { z } from 'zod';
 import { db } from '../../db/client';
 import { doctorProfiles, drugs, rxFavorites, soapTemplates } from '../../db/schema';
 import type { TenantScope } from '../../db/tenant';
-import { notFound } from '../../lib/errors';
+import { badRequest, notFound } from '../../lib/errors';
+import { decodeImage, IMAGE_EXT } from '../../lib/images';
+import { storage } from '../../lib/storage';
 import { escapeLike } from '../../lib/sql';
 import { getDoctor } from '../scheduling/service';
 
@@ -121,10 +124,13 @@ export async function getDoctorProfile(t: TenantScope, doctorId: string): Promis
       prcNo: doctorProfiles.prcNo,
       ptrNo: doctorProfiles.ptrNo,
       s2No: doctorProfiles.s2No,
+      signatureUrl: doctorProfiles.signatureUrl,
     })
     .from(doctorProfiles)
     .where(t.where(doctorProfiles, eq(doctorProfiles.userId, doctorId)));
-  return row ?? { specialty: null, prcNo: '', ptrNo: null, s2No: null };
+  if (!row) return { specialty: null, prcNo: '', ptrNo: null, s2No: null, hasSignature: false };
+  const { signatureUrl, ...profile } = row;
+  return { ...profile, hasSignature: Boolean(signatureUrl) };
 }
 
 export async function saveDoctorProfile(
@@ -152,5 +158,26 @@ export async function saveDoctorProfile(
     await t.tx.insert(doctorProfiles).values(t.values({ userId: doctorId, ...values }));
   }
   await t.audit({ action: 'doctor.credentials.update', entityType: 'doctor', entityId: doctorId });
+  return getDoctorProfile(t, doctorId);
+}
+
+/** Stores (or removes) the signature image printed on this doctor's prescriptions. */
+export async function setSignature(t: TenantScope, doctorId: string, upload: ImageUpload | null) {
+  const profile = await getDoctorProfile(t, doctorId);
+  if (!profile.prcNo) throw badRequest('Save the PRC license number first');
+  let key: string | null = null;
+  if (upload) {
+    key = `clinics/${t.clinicId}/signatures/${doctorId}-${Date.now()}.${IMAGE_EXT[upload.contentType]}`;
+    await storage.put(key, decodeImage(upload));
+  }
+  await t.tx
+    .update(doctorProfiles)
+    .set({ signatureUrl: key })
+    .where(t.where(doctorProfiles, eq(doctorProfiles.userId, doctorId)));
+  await t.audit({
+    action: upload ? 'doctor.signature.update' : 'doctor.signature.remove',
+    entityType: 'doctor',
+    entityId: doctorId,
+  });
   return getDoctorProfile(t, doctorId);
 }

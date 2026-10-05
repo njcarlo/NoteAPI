@@ -20,6 +20,9 @@ export interface RxPdfData {
     quantity: string;
   }[];
   notes: string | null;
+  /** Optional images (PNG/JPEG bytes). */
+  logo?: Buffer | null;
+  signature?: Buffer | null;
 }
 
 const A5: [number, number] = [419.53, 595.28];
@@ -52,7 +55,8 @@ export function renderPrescriptionPdf(data: RxPdfData): Promise<Buffer> {
     doc.moveDown(0.6);
   };
 
-  // Header: doctor, then clinic.
+  // Header: doctor, then clinic. The logo sits at the top left without shifting the centered text.
+  if (data.logo) doc.image(data.logo, MARGIN, MARGIN - 4, { fit: [44, 44] });
   doc
     .font('Helvetica-Bold')
     .fontSize(13)
@@ -120,6 +124,12 @@ export function renderPrescriptionPdf(data: RxPdfData): Promise<Buffer> {
   const footerTop = A5[1] - MARGIN - 70;
   if (doc.y > footerTop - 10) doc.addPage();
   const x = A5[0] - MARGIN - 170;
+  if (data.signature)
+    doc.image(data.signature, x + 25, footerTop - 36, {
+      fit: [120, 46],
+      align: 'center',
+      valign: 'bottom',
+    });
   doc
     .moveTo(x, footerTop + 12)
     .lineTo(A5[0] - MARGIN, footerTop + 12)

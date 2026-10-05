@@ -21,7 +21,8 @@ export async function registerSecurity(app: FastifyInstance): Promise<void> {
   // Counters are per API instance. With N instances the effective limit is N× these numbers.
   await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
 
+  // API responses are private and uncacheable unless a route opts in (e.g. the public clinic logo).
   app.addHook('onSend', async (_request, reply) => {
-    reply.header('cache-control', 'no-store');
+    if (!reply.hasHeader('cache-control')) reply.header('cache-control', 'no-store');
   });
 }

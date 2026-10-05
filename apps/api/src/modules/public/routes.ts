@@ -1,7 +1,12 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { ERROR_CODES } from '@clinic/shared';
+import { and, eq } from 'drizzle-orm';
+import { db } from '../../db/client';
+import { clinics } from '../../db/schema';
 import { AppError } from '../../lib/errors';
+import { contentTypeForKey } from '../../lib/images';
+import { storage } from '../../lib/storage';
 import {
   cancelLookupSchema,
   cancelTokenParams,
@@ -43,6 +48,25 @@ export const publicRoutes: FastifyPluginAsyncZod = async (app) => {
     { config: read, schema: { params: slugParams, response: { 200: publicClinicSchema } } },
     (request) =>
       inPublicClinic(request.params.slug, request.ip, (t, clinic) => publicClinic(t, clinic)),
+  );
+
+  /** The clinic logo is the only file served publicly (it is shown on the booking page). */
+  app.get(
+    '/clinics/:slug/logo',
+    { config: read, schema: { params: slugParams } },
+    async (request, reply) => {
+      const [clinic] = await db
+        .select({ logoUrl: clinics.logoUrl })
+        .from(clinics)
+        .where(and(eq(clinics.slug, request.params.slug), eq(clinics.status, 'active')));
+      const file = clinic?.logoUrl ? await storage.get(clinic.logoUrl) : null;
+      if (!clinic?.logoUrl || !file) throw new AppError(404, ERROR_CODES.NOT_FOUND, 'Not found');
+      return reply
+        .type(contentTypeForKey(clinic.logoUrl))
+        .header('cache-control', 'public, max-age=3600')
+        .header('cross-origin-resource-policy', 'cross-origin')
+        .send(file);
+    },
   );
 
   app.get(

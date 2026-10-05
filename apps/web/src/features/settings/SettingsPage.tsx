@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
+import { ClinicSettings } from './ClinicSettings';
 import { CredentialsSettings } from './CredentialsSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { SchedulesSettings } from './SchedulesSettings';
 
-const TABS = ['schedules', 'credentials', 'notifications'] as const;
+const TABS = ['clinic', 'schedules', 'credentials', 'notifications'] as const;
 
 export function SettingsPage() {
-  const [tab, setTab] = useState<(typeof TABS)[number]>('schedules');
+  const [tab, setTab] = useState<(typeof TABS)[number]>('clinic');
   return (
     <>
       <PageHeader title={t.settings.title} />
@@ -31,6 +32,7 @@ export function SettingsPage() {
         ))}
       </div>
       <div className="max-w-5xl">
+        {tab === 'clinic' && <ClinicSettings />}
         {tab === 'schedules' && <SchedulesSettings />}
         {tab === 'credentials' && <CredentialsSettings />}
         {tab === 'notifications' && <NotificationSettings />}

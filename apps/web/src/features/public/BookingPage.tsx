@@ -63,6 +63,7 @@ export function BookingPage() {
   return (
     <PublicLayout>
       <header className="mb-6">
+        {c.logoUrl && <img src={c.logoUrl} alt="" className="mb-3 h-14 w-auto" />}
         <h1 className="text-2xl font-semibold tracking-tight">{c.name}</h1>
         <div className="mt-2 space-y-1 text-sm text-muted-foreground">
           {c.address && (

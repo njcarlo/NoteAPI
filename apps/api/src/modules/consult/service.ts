@@ -523,7 +523,13 @@ export async function prescriptionPdf(t: TenantScope, prescriptionId: string): P
     .orderBy(asc(prescriptionItems.sortOrder));
   const issued = utcToZoned(rx.issuedAt, clinic.timezone).date;
 
+  const [logo, signature] = await Promise.all([
+    clinic.logoUrl ? storage.get(clinic.logoUrl) : null,
+    doctor.profile?.signatureUrl ? storage.get(doctor.profile.signatureUrl) : null,
+  ]);
   const pdf = await renderPrescriptionPdf({
+    logo,
+    signature,
     clinic: {
       name: clinic.name,
       address: clinic.address,

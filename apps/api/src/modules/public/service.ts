@@ -70,7 +70,7 @@ export async function publicClinic(t: TenantScope, clinic: Clinic): Promise<Publ
     slug: clinic.slug,
     address: clinic.address,
     contactNumber: clinic.contactNumber,
-    logoUrl: clinic.logoUrl,
+    logoUrl: clinic.logoUrl ? `/api/public/clinics/${clinic.slug}/logo` : null,
     timezone: clinic.timezone,
     doctors: await bookableDoctors(t),
   };
