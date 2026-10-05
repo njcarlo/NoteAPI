@@ -25,6 +25,8 @@ const envSchema = z.object({
     .regex(/^[\w-]+$/)
     .optional(),
   /** Live-update streams are closed after this long and reconnect (Firebase Hosting allows 60 s). */
+  /** Online booking only offers slots at least this many minutes ahead. */
+  PUBLIC_BOOKING_LEAD_MINUTES: z.coerce.number().int().min(0).max(1440).default(60),
   SSE_MAX_STREAM_SECONDS: z.coerce.number().int().min(10).max(3600).default(1800),
   LOGIN_MAX_FAILURES: z.coerce.number().int().positive().default(5),
   LOGIN_LOCK_MINUTES: z.coerce.number().int().positive().default(15),

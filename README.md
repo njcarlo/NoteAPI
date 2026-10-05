@@ -162,8 +162,8 @@ immediately.
   weekly blocks for that weekday → exception override → minus existing active bookings → minus
   full blocks → minus anything inside the lead time. Times are computed in the clinic timezone and
   stored in UTC.
-- **Public booking** (`/c/:slug`) offers the next 30 days with a 60-minute lead time
-  (`PUBLIC_BOOKING_DAYS_AHEAD`, `PUBLIC_BOOKING_LEAD_MINUTES` in `packages/shared`). Only doctors
+- **Public booking** (`/c/:slug`) offers the next 30 days (`PUBLIC_BOOKING_DAYS_AHEAD` in
+  `packages/shared`) with a lead time set by `PUBLIC_BOOKING_LEAD_MINUTES` (default 60). Only doctors
   with published hours are listed. Returning patients are matched by mobile number and birthdate;
   otherwise a patient record is created with the consent timestamp and SMS choice.
 - **No double-booking, two ways:** each booking takes a per-doctor-per-day advisory lock and

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Suspense } from 'react';
 import { BellRing, LogOut, X } from 'lucide-react';
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -102,7 +103,9 @@ export function AppShell() {
         </div>
       </aside>
       <main className="flex-1 p-4 md:p-8">
-        <Outlet />
+        <Suspense fallback={<Skeleton className="h-40 w-full" />}>
+          <Outlet />
+        </Suspense>
       </main>
       {alerts.length > 0 && (
         <div className="fixed top-4 right-4 z-50 w-80 space-y-2" role="status" aria-live="polite">

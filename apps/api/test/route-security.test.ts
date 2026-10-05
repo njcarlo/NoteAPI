@@ -288,16 +288,14 @@ async function seedClinicA(): Promise<Ids> {
     .insert(prescriptions)
     .values({ clinicId: c, visitId: visit!.id, doctorId: doctor, patientId: patient!.id })
     .returning();
-  await owner.db
-    .insert(schedules)
-    .values({
-      clinicId: c,
-      doctorId: doctor,
-      dayOfWeek: 1,
-      startTime: '08:00',
-      endTime: '12:00',
-      slotMinutes: 15,
-    });
+  await owner.db.insert(schedules).values({
+    clinicId: c,
+    doctorId: doctor,
+    dayOfWeek: 1,
+    startTime: '08:00',
+    endTime: '12:00',
+    slotMinutes: 15,
+  });
   const [exception] = await owner.db
     .insert(scheduleExceptions)
     .values({

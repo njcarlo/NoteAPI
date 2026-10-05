@@ -4,7 +4,6 @@ import { isoDateSchema, optionalEmail, optionalText, phMobileSchema } from './co
 import { doctorSchema } from './schedules';
 
 export const PUBLIC_BOOKING_DAYS_AHEAD = 30;
-export const PUBLIC_BOOKING_LEAD_MINUTES = 60;
 
 export const publicClinicSchema = z.object({
   name: z.string(),

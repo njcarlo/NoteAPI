@@ -3,7 +3,6 @@ import {
   addDays,
   ERROR_CODES,
   PUBLIC_BOOKING_DAYS_AHEAD,
-  PUBLIC_BOOKING_LEAD_MINUTES,
   todayIn,
   utcToZoned,
   type CancelLookup,
@@ -14,6 +13,7 @@ import {
 } from '@clinic/shared';
 import type { z } from 'zod';
 import type { publicBookingSchema } from '@clinic/shared';
+import { env } from '../../config/env';
 import { db } from '../../db/client';
 import { appointments, clinics, patients, schedules, users } from '../../db/schema';
 import { withTenant, type TenantScope } from '../../db/tenant';
@@ -84,7 +84,7 @@ function bookingWindow(clinic: Clinic) {
 const slotOptions = (clinic: Clinic) => ({
   timeZone: clinic.timezone,
   now: new Date(),
-  minLeadMinutes: PUBLIC_BOOKING_LEAD_MINUTES,
+  minLeadMinutes: env.PUBLIC_BOOKING_LEAD_MINUTES,
 });
 
 /** Up to 14 days of availability counts, clipped to the booking window. */

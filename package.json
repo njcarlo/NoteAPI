@@ -17,7 +17,8 @@
     "db:migrate": "pnpm --filter @clinic/api db:migrate",
     "db:seed": "pnpm --filter @clinic/api db:seed",
     "platform:admin": "pnpm --filter @clinic/api platform:admin",
-    "worker": "pnpm --filter @clinic/api worker"
+    "worker": "pnpm --filter @clinic/api worker",
+    "test:e2e": "pnpm --filter @clinic/e2e test:e2e"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

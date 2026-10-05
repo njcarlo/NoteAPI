@@ -1,32 +1,44 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { SessionProvider } from '@/auth/session';
 import { RequireAccess } from '@/components/RequirePermission';
-import { AuditPage } from '@/features/audit/AuditPage';
-import { CalendarPage } from '@/features/calendar/CalendarPage';
-import { ConsultPage } from '@/features/consult/ConsultPage';
-import { PatientDetailPage } from '@/features/patients/PatientDetailPage';
-import { PatientFormPage } from '@/features/patients/PatientFormPage';
-import { PatientsPage } from '@/features/patients/PatientsPage';
-import { PlatformPage } from '@/features/platform/PlatformPage';
-import { QueuePage } from '@/features/queue/QueuePage';
-import { TodayPage } from '@/features/queue/TodayPage';
-import { BookingPage } from '@/features/public/BookingPage';
-import { CancelPage } from '@/features/public/CancelPage';
-import { OptOutPage } from '@/features/public/OptOutPage';
-import { PrivacyPage } from '@/features/public/PrivacyPage';
-import { RxSharePage } from '@/features/public/RxSharePage';
-import { SettingsPage } from '@/features/settings/SettingsPage';
-import { StaffPage } from '@/features/staff/StaffPage';
 import { AppShell } from '@/layouts/AppShell';
 import { ApiError } from '@/lib/api';
 import { HomeRedirect } from '@/pages/HomeRedirect';
-import { LoginPage } from '@/pages/LoginPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-import { SelectClinicPage } from '@/pages/SelectClinicPage';
+import { PageSkeleton } from '@/pages/PageSkeleton';
 import './index.css';
+
+/** Each page is its own chunk: patients opening the booking page do not download the staff app. */
+const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) =>
+  lazy(() => load().then((m) => ({ default: m[name] })));
+
+const LoginPage = page(() => import('@/pages/LoginPage'), 'LoginPage');
+const SelectClinicPage = page(() => import('@/pages/SelectClinicPage'), 'SelectClinicPage');
+const BookingPage = page(() => import('@/features/public/BookingPage'), 'BookingPage');
+const CancelPage = page(() => import('@/features/public/CancelPage'), 'CancelPage');
+const PrivacyPage = page(() => import('@/features/public/PrivacyPage'), 'PrivacyPage');
+const RxSharePage = page(() => import('@/features/public/RxSharePage'), 'RxSharePage');
+const OptOutPage = page(() => import('@/features/public/OptOutPage'), 'OptOutPage');
+const TodayPage = page(() => import('@/features/queue/TodayPage'), 'TodayPage');
+const QueuePage = page(() => import('@/features/queue/QueuePage'), 'QueuePage');
+const ConsultPage = page(() => import('@/features/consult/ConsultPage'), 'ConsultPage');
+const CalendarPage = page(() => import('@/features/calendar/CalendarPage'), 'CalendarPage');
+const PatientsPage = page(() => import('@/features/patients/PatientsPage'), 'PatientsPage');
+const PatientFormPage = page(
+  () => import('@/features/patients/PatientFormPage'),
+  'PatientFormPage',
+);
+const PatientDetailPage = page(
+  () => import('@/features/patients/PatientDetailPage'),
+  'PatientDetailPage',
+);
+const StaffPage = page(() => import('@/features/staff/StaffPage'), 'StaffPage');
+const AuditPage = page(() => import('@/features/audit/AuditPage'), 'AuditPage');
+const SettingsPage = page(() => import('@/features/settings/SettingsPage'), 'SettingsPage');
+const PlatformPage = page(() => import('@/features/platform/PlatformPage'), 'PlatformPage');
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -160,7 +172,9 @@ createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
-        <RouterProvider router={router} />
+        <Suspense fallback={<PageSkeleton />}>
+          <RouterProvider router={router} />
+        </Suspense>
       </SessionProvider>
     </QueryClientProvider>
   </StrictMode>,
