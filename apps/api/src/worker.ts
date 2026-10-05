@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import { PgBoss } from 'pg-boss';
 import { env } from './config/env';
 import { dbClient } from './db/client';
@@ -46,10 +47,18 @@ const relay = setInterval(() => {
     });
 }, RELAY_EVERY_MS);
 
+// Cloud Run services must answer HTTP on PORT; the worker reports that it is alive.
+const health = process.env.PORT
+  ? createServer((_req, res) =>
+      res.writeHead(200, { 'content-type': 'text/plain' }).end('ok'),
+    ).listen(Number(process.env.PORT))
+  : null;
+
 console.log(`[worker] started: sms=${env.SMS_PROVIDER} email=${env.EMAIL_PROVIDER}`);
 
 const shutdown = async () => {
   clearInterval(relay);
+  health?.close();
   await boss.stop({ graceful: true, timeout: 10_000 });
   await dbClient.end();
   process.exit(0);

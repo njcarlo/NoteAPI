@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve, sep } from 'node:path';
+import { Storage } from '@google-cloud/storage';
 import { env } from '../config/env';
 
 /** Private file storage. Keys are opaque paths; files are only served through access-checked routes. */
@@ -33,4 +34,30 @@ class LocalDiskStorage implements FileStorage {
   }
 }
 
-export const storage: FileStorage = new LocalDiskStorage(resolve(env.STORAGE_DIR));
+/** Google Cloud Storage. The bucket must not be public; the API streams files after access checks. */
+class CloudStorage implements FileStorage {
+  private readonly bucket;
+
+  constructor(bucketName: string) {
+    this.bucket = new Storage().bucket(bucketName);
+  }
+
+  async put(key: string, data: Buffer): Promise<void> {
+    await this.bucket.file(key).save(data, { resumable: false });
+  }
+
+  async get(key: string): Promise<Buffer | null> {
+    try {
+      const [data] = await this.bucket.file(key).download();
+      return data;
+    } catch (error) {
+      if ((error as { code?: number }).code === 404) return null;
+      throw error;
+    }
+  }
+}
+
+export const storage: FileStorage =
+  env.STORAGE_DRIVER === 'gcs'
+    ? new CloudStorage(env.GCS_BUCKET as string)
+    : new LocalDiskStorage(resolve(env.STORAGE_DIR));

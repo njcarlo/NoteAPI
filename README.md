@@ -4,22 +4,42 @@ A clinic-first web app for small clinics and solo doctors in the Philippines. Th
 **Appointment → Check-in → Consultation → Prescription**, with SMS and email notifications. One
 deployment serves many clinics, with strict data isolation between them.
 
-> **Status: Phases 1–5 complete (foundation, multi-clinic, booking, check-in and queue, consultation and prescriptions, notifications).** See [Roadmap](#roadmap).
+- **Patients** book on a mobile-friendly public page, get SMS/email confirmations and reminders,
+  cancel with a link, and open their prescription with their birthdate. No login.
+- **Secretaries** run the day: calendar, check-in with vitals, walk-ins, live queue.
+- **Doctors** see their queue, write SOAP notes, prescribe (with allergy checks) and print an A5
+  prescription in a couple of minutes.
+- **Clinic admins** manage the clinic profile, staff, schedules, credentials and message templates.
+- **Platform admins** create and suspend clinics without any access to patient data.
+
+## Contents
+
+- [Quick start](#quick-start) · [Demo accounts](#demo-accounts) · [Scripts](#scripts) ·
+  [Tests](#tests) · [Configuration](#configuration) · [Deployment](#deployment)
+- [Architecture](#architecture) · [Features](#features) · [Security and privacy](#security-and-privacy)
+  · [Design decisions](#design-decisions) · [Known limitations](#known-limitations)
 
 ## Quick start
 
-Requirements: Node 22+, pnpm 10, Docker.
+Requirements: Node 22.12+, pnpm 10, Docker.
 
 ```bash
 cp .env.example .env
-docker compose up -d          # Postgres 16, Mailpit
+docker compose up -d          # Postgres 16 and Mailpit
 pnpm install
-pnpm db:migrate               # creates tables, RLS policies, grants
-pnpm db:seed                  # demo clinic (wipes existing data; refuses in production)
-pnpm dev                      # API on :3000, web on :5173, notification worker
+pnpm db:migrate               # tables, row-level security, grants
+pnpm db:seed                  # demo data (wipes the database; refuses in production)
+pnpm dev                      # API :3000, web :5173, notification worker
 ```
 
-Open http://localhost:5173 and sign in with a seed account:
+Open http://localhost:5173 and sign in with a demo account. Emails land in Mailpit
+(http://localhost:8025); with `SMS_PROVIDER=console`, text messages are printed by the worker.
+
+Patient pages need no login: booking at http://localhost:5173/c/sample-family-clinic, plus the
+cancel (`/cancel/…`), prescription (`/rx/…`) and opt-out (`/u/…`) links sent in messages, and the
+privacy notice at `/privacy`.
+
+## Demo accounts
 
 | Account                        | Password             | What it shows                                                                         |
 | ------------------------------ | -------------------- | ------------------------------------------------------------------------------------- |
@@ -31,33 +51,21 @@ Open http://localhost:5173 and sign in with a seed account:
 | `imus.secretary@sample.clinic` | `DemoSecretary#2026` | Admin + secretary at Sample Imus Clinic                                               |
 | `platform@sample.clinic`       | `DemoPlatform#2026`  | Platform console: all clinics, no patient data                                        |
 
-Mailpit's inbox is at http://localhost:8025: patient and staff emails land there. With
-`SMS_PROVIDER=console`, text messages are printed in the worker's output.
+Seed data (all names and numbers are fake):
 
-Patient-facing pages (no login): the booking page at http://localhost:5173/c/sample-family-clinic,
-cancel links at `/cancel/<token>` (shown after booking) and the privacy notice at `/privacy`.
-
-### Seed data
-
-- **Sample Family Clinic**, Dasmariñas, Cavite (`/c/sample-family-clinic`): Dr. Santos (admin and
-  doctor, Mon–Sat 08:00–12:00 and 13:00–17:00, 15-minute slots), Dr. Cruz (Mon/Wed/Fri afternoons,
-  20-minute slots) and one secretary. 20 clearly fake patients (`+63917000xxxx`), today's
-  appointments in mixed statuses, 7 finished visits with prescriptions and 3 Rx favorites.
-- **Sample Family Clinic** also has Dr. Lim (OB-GYN, Tue/Thu 09:00–15:00, 30-minute slots), so
-  it shows three doctors sharing one secretary.
+- **Sample Family Clinic**, Dasmariñas, Cavite (`/c/sample-family-clinic`): three doctors sharing
+  one secretary. Dr. Santos (admin, Mon–Sat 08:00–12:00 and 13:00–17:00, 15-minute slots),
+  Dr. Cruz (Mon/Wed/Fri afternoons, 20-minute slots) and Dr. Lim (Tue/Thu 09:00–15:00,
+  30-minute slots). 20 patients, today's appointments in every status, 7 finished visits with
+  prescriptions, 3 Rx favorites and default message templates.
+- **Sample Imus Clinic** (`/c/sample-imus-clinic`): Dr. Santos again, as a doctor only, with its
+  own admin-secretary and patients. Its records are separate from Dasmariñas.
 - **Sample Solo Practice**, Gen. Trias (`/c/sample-solo-practice`): one admin-doctor and no
-  secretary. The doctor checks patients in and runs the queue alone.
-- **Sample Imus Clinic** (`/c/sample-imus-clinic`): Dr. Santos again, as a doctor only (Tue/Thu
-  afternoons), its own admin-secretary and 3 patients. Its patients are separate from Dasmariñas.
-- 56 common generic drugs (shared reference data) and a platform admin.
+  secretary.
+- 56 common generic drugs (shared reference list) and a platform admin.
 
-### Clinics and platform admins
-
-New clinics are created in the **platform console** (`/platform`) by a platform admin. If the clinic
-admin's email already has an account (for example, a doctor who practices elsewhere), that account
-is reused; otherwise a one-time temporary password is shown.
-
-Bootstrap the first platform admin from the command line (prints a one-time password):
+New clinics are created by a platform admin in the platform console (`/platform`). Create the
+first platform admin from the command line (prints a one-time password):
 
 ```bash
 pnpm platform:admin --name "Your Name" --email you@example.com
@@ -65,315 +73,250 @@ pnpm platform:admin --name "Your Name" --email you@example.com
 
 ## Scripts
 
-| Command              | What it does                                            |
-| -------------------- | ------------------------------------------------------- |
-| `pnpm dev`           | API, notification worker and web (Vite) together        |
-| `pnpm worker`        | Notification worker only                                |
-| `pnpm build`         | Builds every package (`apps/api/dist`, `apps/web/dist`) |
-| `pnpm test`          | Unit tests (shared) and API integration tests           |
-| `pnpm typecheck`     | `tsc` in every package                                  |
-| `pnpm lint`          | ESLint across the repo                                  |
-| `pnpm format`        | Prettier                                                |
-| `pnpm db:generate`   | Generate a Drizzle migration from schema changes        |
-| `pnpm db:migrate`    | Apply migrations (uses `MIGRATION_DATABASE_URL`)        |
-| `pnpm db:seed`       | Reset the database to the demo clinic                   |
-| `pnpm clinic:create` | Provision a new clinic and its first admin              |
+| Command               | What it does                                                            |
+| --------------------- | ----------------------------------------------------------------------- |
+| `pnpm dev`            | API, notification worker and web (Vite) together                        |
+| `pnpm worker`         | Notification worker only                                                |
+| `pnpm build`          | Builds `apps/api/dist` (API, worker, migrate, seed) and `apps/web/dist` |
+| `pnpm test`           | Unit tests (shared) and API integration tests                           |
+| `pnpm test:e2e`       | Playwright end-to-end test (starts its own servers and database)        |
+| `pnpm typecheck`      | `tsc` in every package                                                  |
+| `pnpm lint`           | ESLint                                                                  |
+| `pnpm format`         | Prettier                                                                |
+| `pnpm db:generate`    | Generate a Drizzle migration from schema changes                        |
+| `pnpm db:migrate`     | Apply migrations (`MIGRATION_DATABASE_URL`)                             |
+| `pnpm db:seed`        | Reset the database to the demo data                                     |
+| `pnpm platform:admin` | Create (or promote) a platform admin                                    |
 
-Production: `pnpm build`, then `node apps/api/dist/db/migrate.js`, `node apps/api/dist/server.js`
-and `node apps/api/dist/worker.js` (one or more worker instances).
-Serve `apps/web/dist` as static files with `/api` reverse-proxied to the API on the same origin.
+## Tests
 
-API integration tests need Postgres. They migrate and use `TEST_MIGRATION_DATABASE_URL` /
-`TEST_DATABASE_URL` (the `clinic_test` database created by `infra/postgres/init.sql`).
+- **`pnpm test`** runs 147 unit and integration tests (35 in `packages/shared`, 112 in `apps/api`). Integration tests use the `clinic_test`
+  database (`TEST_DATABASE_URL` / `TEST_MIGRATION_DATABASE_URL`) with in-memory SMS and email.
+  Highlights:
+  - `route-security.test.ts`: every route must be classified as public, session-only or
+    clinic-scoped (an unclassified route fails the build). Anonymous calls to every non-public
+    route get 401. Clinic B's admin-doctor then calls **all 53 clinic-scoped routes** with clinic
+    A's real record ids and valid bodies; nothing succeeds or leaks, and clinic A is verified
+    unchanged. Also checks security headers and CORS.
+  - `tenant-isolation.test.ts`, `multi-clinic.test.ts`, `platform.test.ts`: the database layer
+    (row-level security, the platform role without patient access).
+  - `clinic-sizes.test.ts`: the whole flow for clinics with 1, 2 and 5 doctors.
+  - `booking.test.ts`, `queue.test.ts`: concurrent double-booking and queue numbering.
+  - `consult.test.ts`, `notifications.test.ts`: allergy warnings, PDF content, share links,
+    amendments, message privacy, retries, opt-out, and one run through pg-boss.
+- **`pnpm test:e2e`** (Playwright): a patient books on a phone, the secretary checks them in with
+  vitals, the doctor calls them, writes notes and a prescription and finishes the visit, the PDF
+  downloads, and the patient opens the share link with their birthdate. It uses the `clinic_e2e`
+  database (`E2E_DATABASE_URL`, `E2E_MIGRATION_DATABASE_URL`), reseeds it, and starts the API and
+  web app on ports 3100 and 5180. Run `pnpm exec playwright install chromium` once, or set
+  `PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
 
-## Environment variables
+## Configuration
 
-Every variable is documented in [`.env.example`](.env.example). The important ones:
+Every variable is documented in [`.env.example`](.env.example). The ones that matter most:
 
-- `DATABASE_URL` — runtime connection. **Must be the `clinic_app` role**, which is not a superuser
-  and not the table owner, so row-level security applies.
-- `MIGRATION_DATABASE_URL` — owner connection, used only by migrate, seed and `platform:admin`.
-- `WEB_ORIGIN` / `PUBLIC_APP_URL` — the only origins allowed by CORS and the CSRF origin check.
-- `COOKIE_SECURE` — must be `true` in production (the API refuses to start otherwise).
+| Variable                               | Purpose                                                              |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| `DATABASE_URL`                         | Runtime connection as `clinic_app` (never the owner, so RLS applies) |
+| `MIGRATION_DATABASE_URL`               | Owner connection for migrations, seed and `platform:admin`           |
+| `JOBS_DATABASE_URL`                    | Worker only: pg-boss queue (role that can own the `pgboss` schema)   |
+| `TOKEN_SECRET`                         | Signs cancel and opt-out links (32+ characters)                      |
+| `WEB_ORIGIN`, `PUBLIC_APP_URL`         | Allowed origin for CORS/CSRF; base URL for links in messages         |
+| `COOKIE_SECURE`, `SESSION_COOKIE_NAME` | Secure cookies in production; `__session` behind Firebase Hosting    |
+| `SMS_PROVIDER`, `EMAIL_PROVIDER`       | `console`/`semaphore`, `smtp`/`resend`                               |
+| `STORAGE_DRIVER`, `GCS_BUCKET`         | `local` disk in development, `gcs` in production                     |
+| `PUBLIC_BOOKING_LEAD_MINUTES`          | How far ahead online bookings must be (default 60)                   |
+
+Database URLs may use the Cloud SQL socket form
+`postgres://user:pass@localhost/db?host=/cloudsql/PROJECT:REGION:INSTANCE`.
+
+## Deployment
+
+The target is Google Cloud: **Firebase Hosting** for the web app (with `/api/**` rewritten to
+Cloud Run, so everything is same-origin), **Cloud Run** for the API and the worker (one Docker
+image), **Cloud SQL for PostgreSQL 16** and a private **Cloud Storage** bucket, all in
+`asia-southeast1`. Step-by-step commands are in [docs/deploy-gcp.md](docs/deploy-gcp.md);
+`Dockerfile` and `firebase.json` are at the repository root.
+
+Any other host works the same way: run `node dist/db/migrate.js`, then `node dist/server.js` and
+`node dist/worker.js` from the image, and serve `apps/web/dist` with `/api` proxied to the API on
+the same origin.
 
 ## Architecture
 
 ```
 apps/
-  api/        Fastify + Drizzle (Postgres). Modules in src/modules/<area>/{routes,service}.ts
+  api/        Fastify + Drizzle (Postgres). src/modules/<area>/{routes,service}.ts
+              src/worker.ts: notification worker (pg-boss)
   web/        React + Vite, React Router, TanStack Query, React Hook Form, Tailwind, shadcn-style UI
 packages/
-  shared/     Zod schemas, types, constants, permissions, PH phone and age helpers
-infra/        docker init SQL
+  shared/     Zod schemas, types, permissions, slot generator, allergy matcher, templates, helpers
+e2e/          Playwright end-to-end test
+infra/        Docker init SQL
+docs/         Deployment guide
 ```
 
 The same Zod schemas validate forms in the browser and requests in the API
-(`fastify-type-provider-zod`). Response schemas are also enforced, so a route cannot leak a column
-it did not declare.
+(`fastify-type-provider-zod`). Response schemas are enforced too, so a route cannot leak a column
+it did not declare. Errors always use `{ error: { code, message, details? } }`. All UI copy is in
+`apps/web/src/i18n/en.ts`, ready for a Filipino translation. Times are stored in UTC and shown in
+Asia/Manila; phone numbers are stored as E.164 (`+639…`). Each page of the web app is its own
+chunk, so the booking page does not download the staff app.
 
 ### Clinics, people and memberships
 
-- A **user** is a person's login (global, one per email).
-- A **membership** gives a user roles in one clinic. One person can be admin and doctor in one
-  clinic and doctor only in another. Any staffing works: one doctor and one secretary, two doctors
-  sharing a secretary, and so on.
-- After sign-in, a user with one clinic goes straight in; a user with several picks one and can
-  switch from the sidebar. Every request runs against the **active clinic**, and switching clears
-  all cached data in the browser.
-- **Secretary assignments** (optional) limit a secretary to specific doctors. No assignment means
-  the secretary handles every doctor. The session exposes `assignedDoctorIds` for the queue and
-  calendar screens.
-- **Doctor credentials are per clinic** (`doctor_profiles` per clinic and user), because the PTR
-  number is issued by the city where the doctor practices.
-- Patients always belong to one clinic. A doctor at two clinics sees two separate patient lists:
-  each clinic controls its own records under the Data Privacy Act.
+- A **user** is a person's login (one per email). A **membership** gives that user roles in one
+  clinic, so a doctor can be admin and doctor in one clinic and doctor only in another, and
+  switch between them from the sidebar. Every request runs against the active clinic; switching
+  clears all cached data in the browser.
+- Any staffing works: a solo doctor running the front desk, one doctor and one secretary, several
+  doctors sharing secretaries. **Secretary assignments** (optional) limit a secretary to specific
+  doctors. Screens show doctor pickers only when there is more than one doctor.
+- **Doctor credentials are per clinic** (the PTR number depends on the city).
+- Patients always belong to one clinic: each clinic controls its own records under the Data
+  Privacy Act.
 
 ### Tenant isolation (two layers)
 
-1. **Scoped data access.** Routes never touch the database directly; they call
-   `request.tenant(fn)`, which opens a transaction bound to the active clinic and hands `fn` a
-   `TenantScope`. `scope.where(table, …)` always adds `clinic_id = <current clinic>` and
-   `scope.values(…)` stamps `clinic_id` on inserts.
+1. **Scoped data access.** Routes use `request.tenant(fn)`, a transaction bound to the active
+   clinic. `scope.where(table, …)` always adds `clinic_id = <clinic>`; `scope.values(…)` stamps it
+   on inserts.
 2. **Postgres row-level security as a backstop.** The transaction sets `app.clinic_id` and
-   `app.user_id`. Every tenant table hides and rejects rows of any other clinic for the
-   `clinic_app` role. Logins are visible only to the user and to clinics they belong to. A query
-   that forgets its filter still sees only its own clinic; with no context, it sees nothing. The
-   only cross-tenant lookups are two narrow functions used by sign-in and "add staff by email".
+   `app.user_id`; every tenant table hides and rejects other clinics' rows for the `clinic_app`
+   role. A query that forgets its filter still sees only its own clinic; with no context it sees
+   nothing. The few cross-tenant lookups (sign-in, cancel and share links, the outbox relay,
+   opt-out) are narrow `SECURITY DEFINER` functions that return ids only.
 
-`apps/api/test/tenant-isolation.test.ts` and `multi-clinic.test.ts` prove both layers.
+**When you add a tenant table**, add a migration that enables RLS with a `tenant_isolation`
+policy (see `drizzle/0001_security.sql`), and classify any new route in
+`route-security.test.ts`.
 
-**When you add a tenant table**, add a migration that enables RLS and creates the
-`tenant_isolation` policy for it (see `drizzle/0001_security.sql`).
+The **platform console** runs as the `clinic_platform` database role, which has no grants on any
+patient, visit or prescription table; patient counts come from a function that returns numbers
+only.
 
-### Platform console without patient access
-
-Platform requests run with `SET LOCAL ROLE clinic_platform`. That database role has grants only on
-`clinics`, `memberships`, `doctor_profiles`, non-secret `users` columns and insert-only
-`audit_logs`; it has **no grants on any patient, visit or prescription table**, and patient counts
-come from a function that returns numbers only. `apps/api/test/platform.test.ts` checks that the
-role cannot read patients or password hashes. Suspending a clinic signs its staff out of it
-immediately.
+## Features
 
 ### Booking and scheduling
 
-- A doctor's **weekly hours** are blocks per weekday (start, end, slot length, optional cap).
-  **Exceptions** close a date or replace its hours (holidays, leave).
-- **Slots** are generated by one pure function (`packages/shared/src/slots.ts`, unit-tested):
-  weekly blocks for that weekday → exception override → minus existing active bookings → minus
-  full blocks → minus anything inside the lead time. Times are computed in the clinic timezone and
-  stored in UTC.
-- **Public booking** (`/c/:slug`) offers the next 30 days (`PUBLIC_BOOKING_DAYS_AHEAD` in
-  `packages/shared`) with a lead time set by `PUBLIC_BOOKING_LEAD_MINUTES` (default 60). Only doctors
-  with published hours are listed. Returning patients are matched by mobile number and birthdate;
-  otherwise a patient record is created with the consent timestamp and SMS choice.
-- **No double-booking, two ways:** each booking takes a per-doctor-per-day advisory lock and
-  re-checks the slot, and a Postgres exclusion constraint rejects any overlap that gets through.
-  A test fires two simultaneous bookings for the same slot and expects exactly one to succeed.
-- **Bot protection:** a hidden honeypot field, per-IP rate limits on public writes
-  (`PUBLIC_WRITE_RATE_LIMIT_PER_MINUTE`, default 5/min) and reads (60/min), and server-side slot
-  validation.
-- **Cancel links** carry a random token; only its SHA-256 is stored. Opening the link shows the
-  clinic, doctor, time and reference code (no patient details). Cancelling is allowed only for
-  booked appointments that have not started.
-- **Staff calendar:** day view (one column per doctor with appointments and open slots) and week
-  view. Staff can book any open slot for an existing or new patient, move a booked appointment to
-  another open slot, cancel it, or mark it a no-show after its start time. Secretaries assigned to
-  specific doctors only see and book those doctors.
-
-### Any number of doctors
-
-Nothing assumes a doctor count. Every screen adapts:
-
-- **1 doctor:** the public page skips the doctor step; Today, Calendar, walk-ins and Settings show
-  no doctor pickers. Doctors can use Today (check-in, walk-ins, vitals), so a solo practice with
-  no secretary works end to end.
-- **2 or more:** a doctor step on the booking page, an "All doctors" filter on Today and Calendar,
-  one calendar column per doctor, a doctor picker for walk-ins (defaulting to yourself if you are
-  a doctor) and in Settings, and optional secretary-to-doctor assignments in Staff.
-- Each doctor has their own schedule, slots, queue numbering (starting at 1 each day) and
-  "Call next". `apps/api/test/clinic-sizes.test.ts` runs the whole flow (public booking, calendar,
-  check-in, walk-in, queue, call next) for clinics with 1, 2 and 5 doctors.
+- Weekly hours per doctor (blocks with slot length and optional patient cap) plus exceptions for
+  holidays, leave or different hours on one date.
+- Slots come from one pure, unit-tested function (`packages/shared/src/slots.ts`).
+- **Public booking** (`/c/:slug`): doctor (if several), date, time, details, privacy consent and
+  SMS opt-in, with a honeypot and per-IP rate limits. Returning patients are matched by mobile
+  number and birthdate. Staff get an in-app alert (and an email if the clinic has one).
+- **No double-booking:** a per-doctor-day advisory lock plus a Postgres exclusion constraint. A
+  test fires two simultaneous bookings for one slot; exactly one wins.
+- **Staff calendar:** day view (a column per doctor with open slots) and week view; book, move,
+  cancel, mark no-show.
 
 ### Check-in and live queue
 
-- **Today** (secretary home; doctors can use it too): today's appointments grouped into waiting, in consult, upcoming,
-  done and cancelled/no-show, with counts. Check in a booked patient (confirm birthdate, sex,
-  allergies and conditions; record vitals) or add a walk-in. Late patients can be marked no-show.
-- **Queue numbers** are per doctor per day, assigned under the doctor-day lock and backed by a
-  unique index; a concurrency test checks four simultaneous check-ins get 1–4.
-- **Vitals** (BP, temperature, heart and respiratory rate, weight, height, O₂ saturation) are
-  validated against plausible ranges and stored on the visit. Queue and vitals endpoints select
-  only vitals columns, so secretaries never receive SOAP notes; vitals lock with the visit.
-- **Doctor queue**: patients in queue order with age, sex, allergies (red) and vitals; "Call next"
-  takes the lowest number (row-locked so two clicks cannot call the same patient), "Call" picks a
-  specific patient, and "Return to queue" undoes a call.
-- **Live updates** use Postgres `LISTEN/NOTIFY` and Server-Sent Events. Every appointment change
-  runs `pg_notify` inside its transaction, so the event fires only on commit and reaches every API
-  instance. `/api/events` streams to signed-in staff of that clinic only (and only for their
-  assigned doctors). Events carry ids, never patient data; screens refetch. Streams send a
-  heartbeat every 25 s and close after 30 minutes so the browser reconnects and the session is
-  re-checked. The sidebar shows a live/reconnecting indicator.
+- **Today** page: waiting, in consult, upcoming, done, cancelled; check-in with profile
+  completion and validated vitals; walk-ins; no-shows.
+- **Queue numbers** per doctor per day, safe under concurrency.
+- **Doctor queue:** queue order with age, sex, allergies in red and vitals; Call next (opens the
+  consultation), Call, Return to queue.
+- **Live updates:** `pg_notify` inside each change's transaction (fires only on commit, reaches
+  every API instance) streamed over Server-Sent Events to that clinic's staff only. Events carry
+  ids, never patient data.
 
 ### Consultation and prescriptions
 
-- **Consultation screen** (`/consult/:appointmentId`, tablet-friendly): patient summary with age,
-  sex, **allergies in red**, conditions and past visits; today's vitals (editable); SOAP notes
-  with per-doctor templates; prescription builder; follow-up date with an optional booked slot.
-  "Call next" opens it directly. Drafts autosave 1.5 s after the last change and survive reloads;
-  **Ctrl/Cmd + Enter** finishes the visit.
-- **Prescription builder:** typeahead over the drug list (generic or brand; arrow keys + Enter),
-  free-text fallback, per-doctor favorites (apply or save), and a non-blocking **allergy warning**
-  that must be acknowledged. Matching (`packages/shared/src/allergy.ts`) covers exact names,
-  combination products, drug classes (penicillin → amoxicillin/co-amoxiclav, sulfa →
-  cotrimoxazole, NSAIDs, cephalosporins, macrolides, quinolones…) and near-spellings. The server
-  re-checks and returns `409 ALLERGY_WARNING` if unacknowledged; acknowledgement is audited.
-- **Finish visit** is one transaction: notes and vitals saved, prescription and items created,
-  follow-up appointment booked (if a slot was chosen), appointment marked done, visit locked,
-  draft cleared, queue updated live. The PDF is rendered right after commit (and re-rendered on
-  demand if missing), so a PDF problem never loses a visit.
-- **Rx PDF** (A5, pdfkit): doctor name and specialty, clinic name, address and contact; patient
-  name, age, sex, address and date; items with the **generic name first** and brand in
-  parentheses, strength, form, quantity and sig; signature line with PRC, PTR and (if present) S2
-  numbers. Credentials are edited in Settings → Doctor credentials (admins) and are per clinic.
-- **Files** go through a storage interface (`apps/api/src/lib/storage.ts`); this MVP ships the
-  local-disk driver (`STORAGE_DIR`). PDFs are never public: they are streamed by
-  `/api/prescriptions/:id/pdf` (doctors) or by a share link.
-- **Share links** (`/rx/:token`): random token, only its hash stored, valid 14 days. The page
-  shows only the clinic name and dates until the patient enters their birthdate; five wrong
-  birthdates disable the link. Every open and every denial is audited.
-- **Amendments:** a finished visit is read-only. Its doctor can amend a SOAP field or the
-  follow-up date with a required reason; the old value, new value, reason, author and time are
-  stored in `visit_amendments`, shown on the visit, and audited.
-- **Access:** secretaries cannot open consultations, SOAP notes, prescriptions or PDFs (API
-  returns 403; the UI shows "not found"). Any doctor in the clinic can read a visit; only the
-  consulting doctor can edit or amend it. The app's database role cannot delete visits or
-  prescriptions.
+- **Consultation screen** (tablet-friendly): patient summary and past visits, editable vitals,
+  SOAP notes with per-doctor templates, prescription builder, follow-up date with optional
+  booking. Drafts autosave; **Ctrl/Cmd + Enter** finishes.
+- **Prescription builder:** drug typeahead with free-text fallback, favorites, and a non-blocking
+  **allergy warning** (names, combination drugs, drug classes, misspellings) that must be
+  acknowledged; the server re-checks and audits it.
+- **Finish visit** is one transaction: notes, vitals, prescription, follow-up, status, lock. The
+  PDF is rendered after commit.
+- **A5 PDF:** logo, doctor and clinic header, patient name/age/sex/address/date, generic name
+  first with brand in parentheses, quantity and sig, optional signature image, PRC/PTR/S2.
+- **Share links** (14 days, birthdate check, disabled after 5 wrong tries, every access audited)
+  and **amendments** to finished visits (old value, new value, reason, author).
 
-### Notifications (SMS and email)
+### Notifications
 
 ```
-appointment change ──(same transaction)──▶ outbox row ──▶ relay (worker, every 5 s)
-                                                              │ claims due rows
+change ──(same transaction)──▶ outbox ──▶ worker relay ──▶ pg-boss (3 retries, backoff)
                                                               ▼
-                                  pg-boss queue "notify" (3 retries, exponential backoff)
-                                                              │
-                                                              ▼
-            render template ▶ check validity and opt-in ▶ SMS / email adapter ▶ notification_logs
+              template ▶ still valid? opted in? ▶ SMS / email adapter ▶ notification_logs
 ```
 
-- **Events:** booking confirmation, moved, cancelled, reminders (6 PM the day before and 7 AM the
-  same day, Manila time), after-visit prescription link, follow-up reminder (two days before the
-  recommended date, unless a follow-up is already booked), and a staff email for online bookings.
-- **Transactional outbox:** each notification is written to `outbox` in the same transaction as
-  the change. Moving, cancelling or checking in deletes the appointment's pending reminders in that
-  transaction and queues new ones; a due reminder whose appointment changed anyway is skipped.
-  The worker relays due rows to pg-boss (`JOBS_DATABASE_URL`); the API never talks to the queue.
-- **Delivery:** per channel, logged in `notification_logs` (`queued | sent | failed | skipped`).
-  A retry never re-sends a channel that already went out. After the last retry the failure stays
-  in the log and the row is closed. Provider errors are logged without message content.
-- **Adapters:** `SMS_PROVIDER=console | semaphore`, `EMAIL_PROVIDER=smtp | resend` (plus `memory`
-  for tests).
-- **Privacy (hard rule):** templates may only use `firstName`, `clinicName`, `clinicPhone`, `date`,
-  `time`, `referenceCode`, `cancelLink`, `bookingLink` and `rxLink`. There is no variable for the
-  visit reason, diagnosis or medicines, and templates with any other placeholder are rejected.
-  Tests book with a reason and check it never appears in any message; staff alerts carry no
-  patient name.
-- **Templates:** default SMS and email templates are created for every clinic and edited in
-  Settings → Notifications with variable buttons, a live preview and an SMS part counter. With
-  links included, some SMS run to two parts; the counter shows this.
-- **Opt-out:** every SMS ends with a signed opt-out link (`/u/:token`). Patients can also reply
-  STOP if the gateway forwards replies to `POST /api/webhooks/sms/inbound` with the
-  `x-webhook-secret` header (`SMS_WEBHOOK_SECRET`). Consent and the SMS choice are recorded at
-  booking. Opt-outs are audited.
-- **Links in messages:** cancel and opt-out links are derived from `TOKEN_SECRET` with HMAC, so
-  reminders can include them without storing them; only hashes are kept. The after-visit message
-  creates a 14-day prescription share link (birthdate check).
-- **Staff alerts:** online bookings pop up an in-app alert for signed-in staff (via the live
-  event stream) and email the clinic address if one is set.
+- Booking confirmation, moved, cancelled, reminders (6 PM the day before, 7 AM the same day),
+  after-visit prescription link, follow-up reminder, staff booking alert.
+- Moving, cancelling or checking in removes pending reminders in the same transaction.
+- Per-channel log (`queued | sent | failed | skipped`); retries never re-send a channel.
+- Adapters: Semaphore or console SMS; SMTP (Mailpit) or Resend email.
+- Templates per clinic with a fixed list of variables and **no variable for the reason,
+  diagnosis or medicines**; editable in Settings with a preview and SMS part counter.
+- Opt-out link in every SMS, and STOP replies through `POST /api/webhooks/sms/inbound`.
 
-### Auth and sessions
+### Settings
 
-- argon2id password hashes; constant-time handling for unknown emails.
-- Opaque session token in an httpOnly, `SameSite=Lax` cookie (`__Host-` prefixed and `Secure` in
-  production). Only its SHA-256 is stored in `sessions`. Sessions are rotated on sign-in, slide on
-  activity (`SESSION_IDLE_MINUTES`) and are revoked when a user is deactivated or their roles change.
-- Account lockout after `LOGIN_MAX_FAILURES` failures for `LOGIN_LOCK_MINUTES`; sign-in is also
-  rate-limited per IP.
-- CSRF: unsafe requests must come from an allowed `Origin`, and signed-in requests must echo the
-  per-session `x-csrf-token`.
+Clinic profile and logo, doctor schedules and exceptions, doctor credentials and signature,
+staff and roles, message templates and log. Rx favorites and SOAP templates are managed from the
+consultation screen.
 
-### Roles and permissions
+## Security and privacy
 
-A membership holds one or more roles, so a doctor can also be an admin. Permissions are
-defined once in `packages/shared/src/permissions.ts` and used by both API guards and navigation.
+Health data is sensitive personal information under the Data Privacy Act of 2012.
 
-| Permission             | Secretary | Doctor | Admin |
-| ---------------------- | :-------: | :----: | :---: |
-| patients (read)        |     ✓     |   ✓    |   ✓   |
-| patients (write)       |     ✓     |   ✓    |       |
-| appointments, queue    |     ✓     |   ✓    |  ✓¹   |
-| vitals                 |     ✓     |   ✓    |       |
-| SOAP notes, Rx         |           |   ✓    |       |
-| settings, staff, audit |           |        |   ✓   |
+- **Private by default:** every route requires a session unless explicitly marked public; the
+  check runs before validation. Role permissions live in `packages/shared/src/permissions.ts`.
+  Secretaries see demographics, vitals and appointments, never SOAP notes or prescriptions.
 
-¹ Admin manages appointments only.
+  | Permission             | Secretary | Doctor | Admin |
+  | ---------------------- | :-------: | :----: | :---: |
+  | patients (read)        |     ✓     |   ✓    |   ✓   |
+  | patients (write)       |     ✓     |   ✓    |       |
+  | appointments, queue    |     ✓     |   ✓    |  ✓¹   |
+  | vitals                 |     ✓     |   ✓    |       |
+  | SOAP notes, Rx         |           |   ✓    |       |
+  | settings, staff, audit |           |        |   ✓   |
 
-### Audit log and privacy
+  ¹ Admins manage appointments only. A membership can hold several roles (e.g. admin + doctor).
 
-- Every view and change of patient records is written to `audit_logs` in the same transaction.
-  Metadata records which fields changed, never their values. The application role can only insert
-  and read audit rows (no update or delete).
-- Request logs contain method, path without query string, status and timing. Cookies and CSRF
-  headers are redacted. Unexpected errors are logged without database `detail` (which can contain
-  row values), and clients get a generic message.
-- Errors always use `{ error: { code, message, details? } }`.
-- Security headers via `@fastify/helmet`, strict CORS, `Cache-Control: no-store` on API responses.
-
-### Time and locale
-
-Timestamps are stored in UTC (`timestamptz`) and shown in Asia/Manila. Phone numbers are accepted
-as `09XXXXXXXXX` or `+639XXXXXXXXX` and stored as E.164. All UI copy lives in
-`apps/web/src/i18n/en.ts` so a Filipino translation can be added alongside it.
+- **Sessions:** argon2id passwords, account lockout, per-IP sign-in rate limit, opaque session
+  token in an httpOnly `SameSite=Lax` cookie (only its hash is stored), rotation on sign-in,
+  idle expiry, immediate revocation on deactivation or role change.
+- **CSRF:** allowed `Origin` required for unsafe requests, plus a per-session `x-csrf-token`.
+- **Audit log:** every view and change of patient, visit and prescription records, written in the
+  same transaction; field names only, never values. The app's database role cannot update or
+  delete audit rows, visits or prescriptions.
+- **No PHI in logs or errors:** request logs have method, path (no query string), status and
+  timing; database error details are never logged or returned.
+- **Files** are private: prescriptions are served only to signed-in doctors or through a share
+  link; only the clinic logo is public. Uploads are checked by file signature, not just type.
+- **Links in messages** (cancel, opt-out) are HMAC-signed with `TOKEN_SECRET`; share links are
+  random. Only hashes are stored.
+- **Headers:** HSTS, `nosniff`, `Referrer-Policy: no-referrer` (tokens in URLs never leak), CSP
+  with `frame-ancestors 'none'`, `Cache-Control: no-store` on API data, strict CORS. The web app
+  sends the same headers from Firebase Hosting.
 
 ## Design decisions
 
-- **Memberships instead of `users.clinic_id`/`users.role`**, so one login can work in several
-  clinics with different roles in each.
-- **Every tenant-owned table has `clinic_id`**, including child tables such as `visits` and
-  `prescription_items`, so RLS can apply uniformly. `clinics` has a unique `slug` for public URLs.
-- **No double-booking** is enforced by a Postgres exclusion constraint on each doctor's active
-  scheduled appointments (`btree_gist`); walk-ins are excluded.
-- **`schedules.max_patients`** caps scheduled appointments within one block (e.g. "max 15 in the
-  morning session"); slots are one patient each. Walk-ins do not count against it.
-- **No Redis.** Notification jobs use pg-boss, a Postgres-backed queue fed by a transactional
-  outbox, so there is one less service to run. Rate limiting is in-memory per API instance (limits multiply with instance count).
-- **Rx PDFs are rendered after the finish-visit transaction commits** (and re-rendered on
-  demand if missing), not inside it, so a slow render never holds database locks.
+- **Memberships** instead of one clinic and role per user, so one login can work in several
+  clinics.
+- **Every tenant table has `clinic_id`**, including child tables, so RLS applies uniformly.
+- **`schedules.max_patients`** caps scheduled appointments per block; walk-ins do not count.
+- **No Redis:** pg-boss (a Postgres-backed queue) fed by a transactional outbox.
+- **PDFs are rendered after the finish-visit transaction** (and on demand if missing), so a slow
+  render never holds locks or loses a visit.
+- **Cancel and opt-out links are derived from a secret** so reminders can include them without
+  storing raw tokens.
 
-## Roadmap
+## Known limitations
 
-| Phase | Scope                                                                              | Status |
-| ----- | ---------------------------------------------------------------------------------- | ------ |
-| 1     | Monorepo, schema, auth, RBAC, tenant scoping, audit, app shell                     | Done   |
-| 1.5   | Multi-clinic memberships, clinic switcher, platform console, secretary assignments | Done   |
-| 2     | Schedules, slot generation, public booking, staff calendar, cancel links           | Done   |
-| 3     | Today dashboard, check-in with vitals, SSE queue                                   | Done   |
-| 4     | Consultation, SOAP, prescriptions, PDF, share links, amendments                    | Done   |
-| 5     | Notifications: pg-boss worker, SMS/email adapters, reminders, opt-out              | Done   |
-| 6     | Hardening, Playwright happy path, Google Cloud deployment                          | Next   |
-
-Settings covers doctor schedules, doctor credentials and notification templates. Still to come:
-editing the clinic profile, uploading a logo or signature image (the PDF prints a signature line),
-and a Cloud Storage driver for files with the Phase 6 deployment work.
-
-## Hosting plan (Google Cloud)
-
-- **Web:** Firebase Hosting serving `apps/web/dist`, with `/api/**` rewritten to the API so cookies
-  stay same-origin.
-- **API and worker:** Cloud Run (scales to zero).
-- **Database:** Cloud SQL for PostgreSQL 16+ in `asia-southeast1` (Singapore). Run migrations with
-  the instance's owner user; create the `clinic_app` login (`CREATE ROLE clinic_app LOGIN PASSWORD
-'…'`) before the first migration. The migration creates `clinic_platform` itself.
-- **Files (logos, signatures, PDFs):** Cloud Storage, private bucket, served only through the API.
-
-Deployment files arrive in Phase 6.
+- **Rate limits are per API instance;** with several instances the effective limit multiplies.
+- **Long SMS:** with links, some default SMS use two parts; the template editor shows the count.
+- **Untested providers:** Semaphore and Resend follow their published APIs but have not been
+  exercised against live accounts.
+- **Docker:** the image and Firebase configuration have not been deployed from this environment
+  (no Docker or cloud access here). The production bundle was run directly, and the Cloud SQL
+  socket form is covered by a test.
+- **Out of scope for the MVP:** online payments, video consults, HMO/PhilHealth claims, a patient
+  portal login, multi-branch clinics and S2 (dangerous drug) prescriptions. The schema leaves room
+  for them: `doctor_profiles.s2_no` already exists, and patients, appointments and prescriptions are
+  separate tables a portal could expose.

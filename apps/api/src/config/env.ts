@@ -8,7 +8,11 @@ const booleanString = z
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().default('0.0.0.0'),
-  API_PORT: z.coerce.number().int().default(3000),
+  /** Defaults to PORT (set by Cloud Run), then 3000. */
+  API_PORT: z.coerce
+    .number()
+    .int()
+    .default(Number(process.env.PORT ?? 3000)),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   DATABASE_URL: z.url(),
   MIGRATION_DATABASE_URL: z.url(),
@@ -33,7 +37,9 @@ const envSchema = z.object({
   LOGIN_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
   PUBLIC_WRITE_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(5),
   TRUST_PROXY: booleanString,
-  STORAGE_DRIVER: z.enum(['local']).default('local'),
+  STORAGE_DRIVER: z.enum(['local', 'gcs']).default('local'),
+  /** Cloud Storage bucket (private) when STORAGE_DRIVER=gcs. Credentials come from the runtime. */
+  GCS_BUCKET: z.string().optional(),
   /** Signs cancel and opt-out links so they can be re-created for reminders without storing them. */
   TOKEN_SECRET: z.string().min(32, 'TOKEN_SECRET must be at least 32 characters'),
   /** Connection for the worker's job queue (pg-boss); must own the `pgboss` schema. Worker only. */
@@ -64,6 +70,9 @@ function loadEnv(): Env {
   }
   if (parsed.data.NODE_ENV === 'production' && !parsed.data.COOKIE_SECURE) {
     throw new Error('COOKIE_SECURE must be true in production');
+  }
+  if (parsed.data.STORAGE_DRIVER === 'gcs' && !parsed.data.GCS_BUCKET) {
+    throw new Error('GCS_BUCKET is required when STORAGE_DRIVER=gcs');
   }
   if (parsed.data.SMS_PROVIDER === 'semaphore' && !parsed.data.SEMAPHORE_API_KEY) {
     throw new Error('SEMAPHORE_API_KEY is required when SMS_PROVIDER=semaphore');

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import postgres from 'postgres';
 import { env } from '../config/env';
+import { connectionOptions } from '../db/connect';
 import { clinicEvents, EVENTS_CHANNEL, type ClinicEventEnvelope } from '../lib/events';
 import { doctorScope, requireActiveClinic } from './auth';
 
@@ -11,7 +12,8 @@ const HEARTBEAT_MS = 25_000;
 const MAX_STREAM_MS = env.SSE_MAX_STREAM_SECONDS * 1000;
 
 export default fp(async (app: FastifyInstance) => {
-  const listener = postgres(env.DATABASE_URL, { max: 1, onnotice: () => undefined });
+  const { url, path } = connectionOptions(env.DATABASE_URL);
+  const listener = postgres(url, { max: 1, onnotice: () => undefined, ...(path ? { path } : {}) });
   const subscription = await listener.listen(EVENTS_CHANNEL, (payload) => {
     try {
       const envelope = JSON.parse(payload) as ClinicEventEnvelope;
