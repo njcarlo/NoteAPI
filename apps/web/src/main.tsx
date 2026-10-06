@@ -35,6 +35,7 @@ const PatientDetailPage = page(
   () => import('@/features/patients/PatientDetailPage'),
   'PatientDetailPage',
 );
+const ReferralsPage = page(() => import('@/features/referrals/ReferralsPage'), 'ReferralsPage');
 const StaffPage = page(() => import('@/features/staff/StaffPage'), 'StaffPage');
 const AuditPage = page(() => import('@/features/audit/AuditPage'), 'AuditPage');
 const SettingsPage = page(() => import('@/features/settings/SettingsPage'), 'SettingsPage');
@@ -99,6 +100,14 @@ const router = createBrowserRouter([
         element: (
           <RequireAccess permission="appointments:manage">
             <CalendarPage />
+          </RequireAccess>
+        ),
+      },
+      {
+        path: 'referrals',
+        element: (
+          <RequireAccess permission="appointments:manage">
+            <ReferralsPage />
           </RequireAccess>
         ),
       },

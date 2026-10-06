@@ -10,6 +10,8 @@ import { t } from '@/i18n';
 import { ageFrom, fullName, phone } from '@/lib/format';
 import { usePatientVisits } from '@/features/consult/api';
 import { dateLabel } from '@/lib/format';
+import { usePatientReferrals } from '@/features/referrals/api';
+import { ReferralItem } from '@/features/referrals/components';
 import { usePatient } from './api';
 
 export function PatientDetailPage() {
@@ -17,6 +19,7 @@ export function PatientDetailPage() {
   const { can } = useSession();
   const query = usePatient(id);
   const visits = usePatientVisits(id ?? '', Boolean(id) && can('clinical:read'));
+  const referrals = usePatientReferrals(id ?? '', Boolean(id) && can('clinical:read'));
 
   if (query.isLoading) return <TableSkeleton rows={5} />;
   if (query.isError || !query.data)
@@ -113,6 +116,24 @@ export function PatientDetailPage() {
                       )}
                     </Link>
                   </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      {can('clinical:read') && (
+        <Card className="mt-6 max-w-2xl">
+          <CardHeader>
+            <CardTitle className="text-base">{t.referrals.section}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!referrals.data?.length ? (
+              <p className="text-sm text-muted-foreground">{t.referrals.none}</p>
+            ) : (
+              <ul className="space-y-2">
+                {referrals.data.map((ref) => (
+                  <ReferralItem key={ref.id} referral={ref} />
                 ))}
               </ul>
             )}

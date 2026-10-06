@@ -14,6 +14,7 @@ import {
 import { id, timestamps } from './_shared';
 import { appointments } from './appointments';
 import { clinics } from './clinics';
+import { referralStatusEnum, referralUrgencyEnum } from './enums';
 import { patients } from './patients';
 import { users } from './users';
 
@@ -202,4 +203,47 @@ export const soapTemplates = pgTable(
     ...timestamps,
   },
   (t) => [index().on(t.clinicId, t.doctorId)],
+);
+
+/**
+ * A doctor sends a patient to a specialty: to a doctor in this clinic (booked by the front desk) or
+ * outside the clinic (the patient takes the referral letter).
+ */
+export const referrals = pgTable(
+  'referrals',
+  {
+    id: id(),
+    clinicId: uuid()
+      .notNull()
+      .references(() => clinics.id),
+    visitId: uuid()
+      .notNull()
+      .references(() => visits.id),
+    patientId: uuid()
+      .notNull()
+      .references(() => patients.id),
+    fromDoctorId: uuid()
+      .notNull()
+      .references(() => users.id),
+    specialty: text().notNull(),
+    toDoctorId: uuid().references(() => users.id),
+    externalDoctor: text(),
+    externalFacility: text(),
+    urgency: referralUrgencyEnum().notNull().default('routine'),
+    status: referralStatusEnum().notNull().default('pending'),
+    reason: text().notNull(),
+    clinicalSummary: text(),
+    /** Why the receiving doctor declined. */
+    responseNote: text(),
+    scheduledAppointmentId: uuid()
+      .unique()
+      .references(() => appointments.id),
+    ...timestamps,
+  },
+  (t) => [
+    index().on(t.clinicId, t.toDoctorId, t.status),
+    index().on(t.clinicId, t.fromDoctorId),
+    index().on(t.clinicId, t.patientId),
+    index().on(t.visitId),
+  ],
 );

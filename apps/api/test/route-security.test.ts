@@ -9,6 +9,7 @@ import {
   memberships,
   patients,
   prescriptions,
+  referrals,
   rxFavorites,
   scheduleExceptions,
   schedules,
@@ -73,6 +74,7 @@ interface Ids {
   exception: string;
   favorite: string;
   template: string;
+  referral: string;
 }
 
 type Attempt = { path: (ids: Ids) => string; body?: (ids: Ids) => object };
@@ -219,6 +221,23 @@ const TENANT: Record<string, Attempt & { own?: true }> = {
     body: () => ({ name: 'B tpl', plan: 'x' }),
   },
   'DELETE /api/soap-templates/:id': { path: (i) => `/api/soap-templates/${i.template}` },
+  'GET /api/referrals': { own: true, path: () => '/api/referrals?box=to_schedule' },
+  'GET /api/referrals/:id': { path: (i) => `/api/referrals/${i.referral}` },
+  'GET /api/referrals/:id/pdf': { path: (i) => `/api/referrals/${i.referral}/pdf` },
+  'GET /api/patients/:id/referrals': { path: (i) => `/api/patients/${i.patient}/referrals` },
+  'POST /api/visits/:id/referrals': {
+    path: (i) => `/api/visits/${i.visit}/referrals`,
+    body: () => ({ specialty: 'Cardiology', reason: 'Cross-clinic attempt' }),
+  },
+  'POST /api/referrals/:id/schedule': {
+    path: (i) => `/api/referrals/${i.referral}/schedule`,
+    body: () => ({ startAt: future() }),
+  },
+  'POST /api/referrals/:id/decline': {
+    path: (i) => `/api/referrals/${i.referral}/decline`,
+    body: () => ({ note: 'Cross-clinic attempt' }),
+  },
+  'POST /api/referrals/:id/cancel': { path: (i) => `/api/referrals/${i.referral}/cancel` },
   'GET /api/notification-templates': { own: true, path: () => '/api/notification-templates' },
   'PUT /api/notification-templates/:event/:channel': {
     own: true,
@@ -313,6 +332,18 @@ async function seedClinicA(): Promise<Ids> {
     .insert(soapTemplates)
     .values({ clinicId: c, doctorId: doctor, name: 'A tpl' })
     .returning();
+  const [referral] = await owner.db
+    .insert(referrals)
+    .values({
+      clinicId: c,
+      visitId: visit!.id,
+      patientId: patient!.id,
+      fromDoctorId: doctor,
+      toDoctorId: doctor,
+      specialty: 'Cardiology',
+      reason: MARKER,
+    })
+    .returning();
   return {
     doctor,
     secretary: a.userIds.secretary,
@@ -325,6 +356,7 @@ async function seedClinicA(): Promise<Ids> {
     exception: exception!.id,
     favorite: favorite!.id,
     template: template!.id,
+    referral: referral!.id,
   };
 }
 
@@ -443,6 +475,14 @@ describe('cross-clinic access', () => {
       .from(appointments)
       .where(eq(appointments.patientId, ids.patient));
     expect(appts).toHaveLength(3);
+    const [referral] = await owner.db
+      .select()
+      .from(referrals)
+      .where(eq(referrals.id, ids.referral));
+    expect(referral).toMatchObject({ status: 'pending', scheduledAppointmentId: null });
+    expect(
+      await owner.db.select().from(referrals).where(eq(referrals.visitId, ids.visit)),
+    ).toHaveLength(1);
   });
 });
 

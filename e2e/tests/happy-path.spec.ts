@@ -16,7 +16,7 @@ async function signIn(browser: Browser, email: string, password: string): Promis
   return page;
 }
 
-test('book online → check in → consult → prescription', async ({ browser }) => {
+test('book online → check in → consult → prescription → referral', async ({ browser }) => {
   // 1. The patient books on their phone.
   const phone = await (
     await browser.newContext({ ...{ viewport: { width: 390, height: 844 } } })
@@ -100,4 +100,30 @@ test('book online → check in → consult → prescription', async ({ browser }
   await expect(desk.locator('section', { hasText: 'Done' })).toContainText(
     `${PATIENT.last}, ${PATIENT.first}`,
   );
+
+  // 6. The doctor refers the patient by specialty; the only OB-GYN in the clinic is picked.
+  await doctor.getByRole('button', { name: 'Refer to a specialist' }).click();
+  await doctor.getByLabel('Specialty').selectOption('Obstetrics and Gynecology');
+  await expect(doctor.getByLabel('Receiving doctor')).toHaveValue(/.+/);
+  await doctor.getByLabel('Urgency').selectOption('urgent');
+  await doctor.getByLabel('Reason for referral').fill('Evaluate pelvic pain');
+  await expect(doctor.getByLabel(/Clinical summary/)).toHaveValue(/Acute tonsillopharyngitis/);
+  await doctor.getByRole('button', { name: 'Create referral' }).click();
+  const referral = doctor.locator('li', { hasText: 'To Grace Demo Lim, MD' });
+  await expect(referral).toContainText('Urgent');
+  const letter = await doctor.request.get(
+    (await referral.getByRole('link', { name: 'Referral letter' }).getAttribute('href'))!,
+  );
+  expect(letter.headers()['content-type']).toBe('application/pdf');
+
+  // 7. The front desk books it with Dr. Lim.
+  await desk.goto('/referrals');
+  const toBook = desk.locator('li', { hasText: `${PATIENT.last}, ${PATIENT.first}` });
+  await expect(toBook).toContainText('Obstetrics and Gynecology');
+  await toBook.getByRole('button', { name: 'Book' }).click();
+  await toBook.getByLabel('Time').selectOption({ index: 1 });
+  await toBook.getByRole('button', { name: 'Book appointment' }).click();
+  await expect(desk.getByText('No referrals.')).toBeVisible();
+  await doctor.reload();
+  await expect(doctor.locator('li', { hasText: 'To Grace Demo Lim, MD' })).toContainText('Booked');
 });

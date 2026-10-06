@@ -21,6 +21,11 @@ import { useSession } from '@/auth/session';
 import { useSlots } from '@/features/calendar/api';
 import { t } from '@/i18n';
 import { ApiError, errorMessage } from '@/lib/api';
+import {
+  ReferredFromBanner,
+  summaryFromSoap,
+  VisitReferrals,
+} from '@/features/referrals/components';
 import { ageFrom, dateLabel, fullName, manilaTime, todayManila } from '@/lib/format';
 import { useConsult, useFinishVisit, useSaveDraft, useTemplateActions, useTemplates } from './api';
 import { FinishedVisit } from './FinishedVisit';
@@ -38,6 +43,11 @@ export function ConsultPage() {
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <PatientSidebar consult={consult.data} />
       <div className="min-w-0 flex-1">
+        {consult.data.referredFrom && (
+          <div className="mb-6">
+            <ReferredFromBanner referral={consult.data.referredFrom} />
+          </div>
+        )}
         {consult.data.visit.locked ? (
           <FinishedVisit consult={consult.data} />
         ) : (
@@ -272,6 +282,16 @@ function ConsultEditor({ consult }: { consult: Consult }) {
           onAcknowledge={setAcknowledged}
           errors={fieldErrors}
           disabled={!isMine}
+        />
+      </Card>
+
+      <Card className="p-4">
+        <h2 className="mb-3 font-semibold">{t.referrals.section}</h2>
+        <VisitReferrals
+          visitId={visit.id}
+          referrals={visit.referrals}
+          canWrite={isMine}
+          defaultSummary={summaryFromSoap(soap)}
         />
       </Card>
 

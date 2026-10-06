@@ -90,12 +90,12 @@ pnpm platform:admin --name "Your Name" --email you@example.com
 
 ## Tests
 
-- **`pnpm test`** runs 147 unit and integration tests (35 in `packages/shared`, 112 in `apps/api`). Integration tests use the `clinic_test`
+- **`pnpm test`** runs 156 unit and integration tests (35 in `packages/shared`, 121 in `apps/api`). Integration tests use the `clinic_test`
   database (`TEST_DATABASE_URL` / `TEST_MIGRATION_DATABASE_URL`) with in-memory SMS and email.
   Highlights:
   - `route-security.test.ts`: every route must be classified as public, session-only or
     clinic-scoped (an unclassified route fails the build). Anonymous calls to every non-public
-    route get 401. Clinic B's admin-doctor then calls **all 53 clinic-scoped routes** with clinic
+    route get 401. Clinic B's admin-doctor then calls **all 61 clinic-scoped routes** with clinic
     A's real record ids and valid bodies; nothing succeeds or leaks, and clinic A is verified
     unchanged. Also checks security headers and CORS.
   - `tenant-isolation.test.ts`, `multi-clinic.test.ts`, `platform.test.ts`: the database layer
@@ -104,9 +104,12 @@ pnpm platform:admin --name "Your Name" --email you@example.com
   - `booking.test.ts`, `queue.test.ts`: concurrent double-booking and queue numbering.
   - `consult.test.ts`, `notifications.test.ts`: allergy warnings, PDF content, share links,
     amendments, message privacy, retries, opt-out, and one run through pg-boss.
+  - `referrals.test.ts`: specialty matching, who may refer, decline and cancel, front-desk
+    booking without clinical details, the letter's content, and status following the appointment.
 - **`pnpm test:e2e`** (Playwright): a patient books on a phone, the secretary checks them in with
   vitals, the doctor calls them, writes notes and a prescription and finishes the visit, the PDF
-  downloads, and the patient opens the share link with their birthdate. It uses the `clinic_e2e`
+  downloads, and the patient opens the share link with their birthdate. The doctor then refers
+  the patient to the clinic's OB-GYN, and the secretary books the referral. It uses the `clinic_e2e`
   database (`E2E_DATABASE_URL`, `E2E_MIGRATION_DATABASE_URL`), reseeds it, and starts the API and
   web app on ports 3100 and 5180. Run `pnpm exec playwright install chromium` once, or set
   `PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
@@ -236,6 +239,23 @@ only.
 - **Share links** (14 days, birthdate check, disabled after 5 wrong tries, every access audited)
   and **amendments** to finished visits (old value, new value, reason, author).
 
+### Referrals by specialty
+
+- From an open or finished visit, the doctor picks a **specialty** (one shared list, also used
+  for doctor profiles), then a doctor in this clinic listed under it, or a specialist **outside
+  the clinic** (optional doctor and hospital names). With one matching colleague, they are
+  preselected; with none, the referral goes outside. Urgency: routine, urgent or emergency.
+- The **clinical summary** is prefilled from the visit notes and printed on an **A4 referral
+  letter** (letterhead, addressee, patient, allergies, reason, summary, current medicines,
+  signature and PRC).
+- In-clinic referrals land in **Referrals → To book** for the front desk (emergencies first).
+  Secretaries see the specialty, urgency and patient, but not the reason or summary. Booking
+  creates the appointment with the receiving doctor and sends the usual confirmation.
+- The receiving doctor sees **Referred to me**, can decline with a note, and gets a banner with
+  the reason and summary on the referred consultation. The sender can cancel until it is booked.
+- Status follows the appointment through a database trigger, whatever path changes it:
+  finished → _seen_; cancelled or no-show → back to _to book_.
+
 ### Notifications
 
 ```
@@ -255,7 +275,8 @@ change ──(same transaction)──▶ outbox ──▶ worker relay ──▶
 
 ### Settings
 
-Clinic profile and logo, doctor schedules and exceptions, doctor credentials and signature,
+Clinic profile and logo, doctor schedules and exceptions, doctor credentials (specialty, PRC,
+PTR, S2) and signature,
 staff and roles, message templates and log. Rx favorites and SOAP templates are managed from the
 consultation screen.
 
@@ -282,13 +303,13 @@ Health data is sensitive personal information under the Data Privacy Act of 2012
   token in an httpOnly `SameSite=Lax` cookie (only its hash is stored), rotation on sign-in,
   idle expiry, immediate revocation on deactivation or role change.
 - **CSRF:** allowed `Origin` required for unsafe requests, plus a per-session `x-csrf-token`.
-- **Audit log:** every view and change of patient, visit and prescription records, written in the
+- **Audit log:** every view and change of patient, visit, prescription and referral records, written in the
   same transaction; field names only, never values. The app's database role cannot update or
-  delete audit rows, visits or prescriptions.
+  delete audit rows, visits, prescriptions or referrals.
 - **No PHI in logs or errors:** request logs have method, path (no query string), status and
   timing; database error details are never logged or returned.
 - **Files** are private: prescriptions are served only to signed-in doctors or through a share
-  link; only the clinic logo is public. Uploads are checked by file signature, not just type.
+  link, and referral letters only to signed-in doctors; only the clinic logo is public. Uploads are checked by file signature, not just type.
 - **Links in messages** (cancel, opt-out) are HMAC-signed with `TOKEN_SECRET`; share links are
   random. Only hashes are stored.
 - **Headers:** HSTS, `nosniff`, `Referrer-Policy: no-referrer` (tokens in URLs never leak), CSP

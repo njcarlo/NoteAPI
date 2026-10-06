@@ -59,3 +59,53 @@ export const ERROR_CODES = {
   INTERNAL: 'INTERNAL_ERROR',
 } as const;
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
+
+/**
+ * Specialties a doctor can list and be referred to. One fixed list (PMA specialty societies, plus
+ * common subspecialties) so a referral to "Cardiology" finds every cardiologist in the clinic.
+ */
+export const SPECIALTIES = [
+  'Family Medicine',
+  'Internal Medicine',
+  'Pediatrics',
+  'Obstetrics and Gynecology',
+  'General Surgery',
+  'Orthopedics',
+  'Cardiology',
+  'Pulmonology',
+  'Gastroenterology',
+  'Endocrinology',
+  'Nephrology',
+  'Neurology',
+  'Psychiatry',
+  'Dermatology',
+  'Ophthalmology',
+  'Otorhinolaryngology (ENT)',
+  'Urology',
+  'Oncology',
+  'Infectious Diseases',
+  'Rheumatology',
+  'Allergy and Immunology',
+  'Rehabilitation Medicine',
+  'Radiology',
+  'Anesthesiology',
+  'Pathology',
+  'Dentistry',
+] as const;
+export type Specialty = (typeof SPECIALTIES)[number];
+
+export const REFERRAL_URGENCIES = ['routine', 'urgent', 'emergency'] as const;
+export type ReferralUrgency = (typeof REFERRAL_URGENCIES)[number];
+
+/**
+ * `pending`: waiting to be booked (in-clinic) or handed to the patient (outside the clinic).
+ * `scheduled`: booked with the receiving doctor; `completed` once that visit is finished.
+ */
+export const REFERRAL_STATUSES = [
+  'pending',
+  'scheduled',
+  'completed',
+  'declined',
+  'cancelled',
+] as const;
+export type ReferralStatus = (typeof REFERRAL_STATUSES)[number];

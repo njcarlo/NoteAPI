@@ -6,6 +6,8 @@ import {
   APPOINTMENT_TYPES,
   NOTIFICATION_CHANNELS,
   NOTIFICATION_STATUSES,
+  REFERRAL_STATUSES,
+  REFERRAL_URGENCIES,
   ROLES,
   SEXES,
 } from '@clinic/shared';
@@ -18,3 +20,5 @@ export const appointmentSourceEnum = pgEnum('appointment_source', APPOINTMENT_SO
 export const notificationChannelEnum = pgEnum('notification_channel', NOTIFICATION_CHANNELS);
 export const notificationStatusEnum = pgEnum('notification_status', NOTIFICATION_STATUSES);
 export const clinicStatusEnum = pgEnum('clinic_status', CLINIC_STATUSES);
+export const referralUrgencyEnum = pgEnum('referral_urgency', REFERRAL_URGENCIES);
+export const referralStatusEnum = pgEnum('referral_status', REFERRAL_STATUSES);

@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import {
   doctorProfileInputSchema,
+  SPECIALTIES,
   type DoctorProfile,
   type DoctorProfileInput,
   type ImageUpload as ImageBody,
@@ -73,7 +74,9 @@ function CredentialsForm({ doctorId, profile }: { doctorId: string; profile: Doc
   const form = useForm<DoctorProfileInput, unknown, z.output<typeof doctorProfileInputSchema>>({
     resolver: zodResolver(doctorProfileInputSchema),
     defaultValues: {
-      specialty: profile.specialty ?? '',
+      specialty: (SPECIALTIES as readonly string[]).includes(profile.specialty ?? '')
+        ? (profile.specialty as DoctorProfileInput['specialty'])
+        : '',
       prcNo: profile.prcNo,
       ptrNo: profile.ptrNo ?? '',
       s2No: profile.s2No ?? '',
@@ -95,8 +98,15 @@ function CredentialsForm({ doctorId, profile }: { doctorId: string; profile: Doc
   return (
     <form className="space-y-4" noValidate onSubmit={form.handleSubmit((v) => save.mutate(v))}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <FormField id="specialty" label={c.specialty}>
-          <Input id="specialty" {...form.register('specialty')} />
+        <FormField id="specialty" label={c.specialty} error={errors.specialty?.message}>
+          <Select id="specialty" {...form.register('specialty')}>
+            <option value="">{c.noSpecialty}</option>
+            {SPECIALTIES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </Select>
         </FormField>
         <FormField id="prcNo" label={c.prcNo} error={errors.prcNo?.message}>
           <Input

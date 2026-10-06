@@ -17,7 +17,7 @@ export function useLiveUpdates(clinicId: string | null) {
     if (!clinicId) return;
     const source = new EventSource('/api/events');
     const refetch = () => {
-      for (const key of ['appointments', 'queue', 'slots'])
+      for (const key of ['appointments', 'queue', 'slots', 'referrals'])
         void queryClient.invalidateQueries({ queryKey: [key] });
     };
     source.onopen = () => setState('live');

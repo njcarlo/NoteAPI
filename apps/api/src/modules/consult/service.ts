@@ -41,6 +41,7 @@ import { renderPrescriptionPdf } from '../../lib/rx-pdf';
 import { iso } from '../../lib/sql';
 import { storage } from '../../lib/storage';
 import { insertAppointment } from '../appointments/service';
+import { referredFrom, visitReferrals } from '../referrals/service';
 import { enqueue, followUpReminderTime } from '../notifications/outbox';
 import { getClinic, lockDoctorDay } from '../scheduling/service';
 
@@ -139,6 +140,7 @@ async function loadVisit(t: TenantScope, appointmentId: string): Promise<Visit> 
       authorName,
       createdAt: iso(m.createdAt),
     })),
+    referrals: await visitReferrals(t, v.id),
   };
 }
 
@@ -243,6 +245,7 @@ export async function getConsult(
     },
     visit,
     history: await loadHistory(t, patient.id, visit.id),
+    referredFrom: await referredFrom(t, appointmentId),
   };
 }
 

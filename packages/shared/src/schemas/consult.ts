@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import { APPOINTMENT_STATUSES, SEXES } from '../constants';
+import { APPOINTMENT_STATUSES, SEXES, SPECIALTIES } from '../constants';
 import { isoDateSchema, optionalText } from './common';
 import { vitalsSchema } from './queue';
+import { referralSchema, referredFromSchema } from './referrals';
 
 export const SOAP_FIELDS = ['subjective', 'objective', 'assessment', 'plan'] as const;
 export type SoapField = (typeof SOAP_FIELDS)[number];
@@ -154,6 +155,7 @@ export const visitSchema = z.object({
     .nullable(),
   prescription: prescriptionSchema.nullable(),
   amendments: z.array(amendmentSchema),
+  referrals: z.array(referralSchema),
 });
 export type Visit = z.infer<typeof visitSchema>;
 
@@ -182,6 +184,8 @@ export const consultSchema = z.object({
   }),
   visit: visitSchema,
   history: z.array(visitSummarySchema),
+  /** Set when this appointment was booked from a referral. */
+  referredFrom: referredFromSchema.nullable(),
 });
 export type Consult = z.infer<typeof consultSchema>;
 
@@ -234,7 +238,11 @@ export const doctorProfileSchema = z.object({
 export type DoctorProfile = z.infer<typeof doctorProfileSchema>;
 
 export const doctorProfileInputSchema = z.object({
-  specialty: optionalText(100),
+  specialty: z
+    .union([z.literal(''), z.enum(SPECIALTIES, 'Choose a specialty from the list')])
+    .transform((value) => (value === '' ? null : value))
+    .nullable()
+    .optional(),
   prcNo: z
     .string()
     .trim()

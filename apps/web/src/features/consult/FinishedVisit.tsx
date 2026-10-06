@@ -9,6 +9,7 @@ import { useSession } from '@/auth/session';
 import { t } from '@/i18n';
 import { ApiError, errorMessage } from '@/lib/api';
 import { dateLabel, manilaDateTime, vitalsSummary } from '@/lib/format';
+import { summaryFromSoap, VisitReferrals } from '@/features/referrals/components';
 import { useAmend, useShareLink } from './api';
 
 const c = t.consult;
@@ -126,6 +127,16 @@ export function FinishedVisit({ consult }: { consult: Consult }) {
             )}
           </>
         )}
+      </Card>
+
+      <Card className="space-y-3 p-4">
+        <h2 className="font-semibold">{t.referrals.section}</h2>
+        <VisitReferrals
+          visitId={visit.id}
+          referrals={visit.referrals}
+          canWrite={isAuthor}
+          defaultSummary={summaryFromSoap(visit.soap)}
+        />
       </Card>
 
       <Card className="space-y-3 p-4">
