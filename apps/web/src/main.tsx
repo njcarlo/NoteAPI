@@ -36,6 +36,7 @@ const PatientDetailPage = page(
   'PatientDetailPage',
 );
 const ReferralsPage = page(() => import('@/features/referrals/ReferralsPage'), 'ReferralsPage');
+const LabsPage = page(() => import('@/features/labs/LabsPage'), 'LabsPage');
 const StaffPage = page(() => import('@/features/staff/StaffPage'), 'StaffPage');
 const AuditPage = page(() => import('@/features/audit/AuditPage'), 'AuditPage');
 const SettingsPage = page(() => import('@/features/settings/SettingsPage'), 'SettingsPage');
@@ -108,6 +109,14 @@ const router = createBrowserRouter([
         element: (
           <RequireAccess permission="appointments:manage">
             <ReferralsPage />
+          </RequireAccess>
+        ),
+      },
+      {
+        path: 'labs',
+        element: (
+          <RequireAccess permission="patients:write">
+            <LabsPage />
           </RequireAccess>
         ),
       },

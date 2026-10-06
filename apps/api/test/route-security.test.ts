@@ -6,6 +6,9 @@ import type { App } from '../src/app';
 import {
   appointments,
   doctorProfiles,
+  labRequests,
+  labResults,
+  partnerFacilities,
   memberships,
   patients,
   prescriptions,
@@ -75,6 +78,9 @@ interface Ids {
   favorite: string;
   template: string;
   referral: string;
+  facility: string;
+  labRequest: string;
+  labResult: string;
 }
 
 type Attempt = { path: (ids: Ids) => string; body?: (ids: Ids) => object };
@@ -238,6 +244,37 @@ const TENANT: Record<string, Attempt & { own?: true }> = {
     body: () => ({ note: 'Cross-clinic attempt' }),
   },
   'POST /api/referrals/:id/cancel': { path: (i) => `/api/referrals/${i.referral}/cancel` },
+  'GET /api/facilities': { own: true, path: () => '/api/facilities?all=true' },
+  'POST /api/facilities': {
+    own: true,
+    path: () => '/api/facilities',
+    body: () => ({ name: 'B Lab', kind: 'laboratory' }),
+  },
+  'PATCH /api/facilities/:id': {
+    path: (i) => `/api/facilities/${i.facility}`,
+    body: () => ({ isActive: false }),
+  },
+  'GET /api/lab-requests': { own: true, path: () => '/api/lab-requests?box=to_review' },
+  'GET /api/patients/:id/lab-requests': { path: (i) => `/api/patients/${i.patient}/lab-requests` },
+  'POST /api/visits/:id/lab-requests': {
+    path: (i) => `/api/visits/${i.visit}/lab-requests`,
+    body: () => ({ tests: ['CBC with platelet count'] }),
+  },
+  'GET /api/lab-requests/:id/pdf': { path: (i) => `/api/lab-requests/${i.labRequest}/pdf` },
+  'POST /api/lab-requests/:id/results': {
+    path: (i) => `/api/lab-requests/${i.labRequest}/results`,
+    body: () => ({
+      fileName: 'x.png',
+      contentType: 'image/png',
+      data: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]).toString('base64'),
+    }),
+  },
+  'GET /api/lab-results/:id': { path: (i) => `/api/lab-results/${i.labResult}` },
+  'POST /api/lab-requests/:id/review': {
+    path: (i) => `/api/lab-requests/${i.labRequest}/review`,
+    body: () => ({ note: 'Cross-clinic attempt' }),
+  },
+  'POST /api/lab-requests/:id/cancel': { path: (i) => `/api/lab-requests/${i.labRequest}/cancel` },
   'GET /api/notification-templates': { own: true, path: () => '/api/notification-templates' },
   'PUT /api/notification-templates/:event/:channel': {
     own: true,
@@ -344,6 +381,34 @@ async function seedClinicA(): Promise<Ids> {
       reason: MARKER,
     })
     .returning();
+  const [facility] = await owner.db
+    .insert(partnerFacilities)
+    .values({ clinicId: c, name: `${MARKER} Lab`, kind: 'laboratory' })
+    .returning();
+  const [labRequest] = await owner.db
+    .insert(labRequests)
+    .values({
+      clinicId: c,
+      visitId: visit!.id,
+      patientId: patient!.id,
+      doctorId: doctor,
+      facilityId: facility!.id,
+      tests: [MARKER],
+      status: 'results_in',
+    })
+    .returning();
+  const [labResult] = await owner.db
+    .insert(labResults)
+    .values({
+      clinicId: c,
+      labRequestId: labRequest!.id,
+      storageKey: `clinics/${c}/lab-results/missing.pdf`,
+      fileName: 'result.pdf',
+      contentType: 'application/pdf',
+      sizeBytes: 10,
+      uploadedBy: doctor,
+    })
+    .returning();
   return {
     doctor,
     secretary: a.userIds.secretary,
@@ -357,6 +422,9 @@ async function seedClinicA(): Promise<Ids> {
     favorite: favorite!.id,
     template: template!.id,
     referral: referral!.id,
+    facility: facility!.id,
+    labRequest: labRequest!.id,
+    labResult: labResult!.id,
   };
 }
 
@@ -482,6 +550,22 @@ describe('cross-clinic access', () => {
     expect(referral).toMatchObject({ status: 'pending', scheduledAppointmentId: null });
     expect(
       await owner.db.select().from(referrals).where(eq(referrals.visitId, ids.visit)),
+    ).toHaveLength(1);
+    const [facility] = await owner.db
+      .select()
+      .from(partnerFacilities)
+      .where(eq(partnerFacilities.id, ids.facility));
+    expect(facility?.isActive).toBe(true);
+    const [labRequest] = await owner.db
+      .select()
+      .from(labRequests)
+      .where(eq(labRequests.id, ids.labRequest));
+    expect(labRequest).toMatchObject({ status: 'results_in', reviewNote: null });
+    expect(
+      await owner.db.select().from(labResults).where(eq(labResults.labRequestId, ids.labRequest)),
+    ).toHaveLength(1);
+    expect(
+      await owner.db.select().from(labRequests).where(eq(labRequests.visitId, ids.visit)),
     ).toHaveLength(1);
   });
 });

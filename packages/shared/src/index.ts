@@ -21,6 +21,7 @@ export * from './schemas/consult';
 export * from './schemas/notifications';
 export * from './schemas/clinic';
 export * from './schemas/referrals';
+export * from './schemas/labs';
 
 export interface Paginated<T> {
   items: T[];

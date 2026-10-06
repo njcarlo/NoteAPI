@@ -4,10 +4,11 @@ import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { ClinicSettings } from './ClinicSettings';
 import { CredentialsSettings } from './CredentialsSettings';
+import { FacilitiesSettings } from './FacilitiesSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { SchedulesSettings } from './SchedulesSettings';
 
-const TABS = ['clinic', 'schedules', 'credentials', 'notifications'] as const;
+const TABS = ['clinic', 'schedules', 'credentials', 'partners', 'notifications'] as const;
 
 export function SettingsPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('clinic');
@@ -35,6 +36,7 @@ export function SettingsPage() {
         {tab === 'clinic' && <ClinicSettings />}
         {tab === 'schedules' && <SchedulesSettings />}
         {tab === 'credentials' && <CredentialsSettings />}
+        {tab === 'partners' && <FacilitiesSettings />}
         {tab === 'notifications' && <NotificationSettings />}
       </div>
     </>

@@ -10,6 +10,8 @@ import { t } from '@/i18n';
 import { ageFrom, fullName, phone } from '@/lib/format';
 import { usePatientVisits } from '@/features/consult/api';
 import { dateLabel } from '@/lib/format';
+import { usePatientLabRequests } from '@/features/labs/api';
+import { LabRequestItem } from '@/features/labs/components';
 import { usePatientReferrals } from '@/features/referrals/api';
 import { ReferralItem } from '@/features/referrals/components';
 import { usePatient } from './api';
@@ -20,6 +22,7 @@ export function PatientDetailPage() {
   const query = usePatient(id);
   const visits = usePatientVisits(id ?? '', Boolean(id) && can('clinical:read'));
   const referrals = usePatientReferrals(id ?? '', Boolean(id) && can('clinical:read'));
+  const labs = usePatientLabRequests(id ?? '', Boolean(id) && can('clinical:read'));
 
   if (query.isLoading) return <TableSkeleton rows={5} />;
   if (query.isError || !query.data)
@@ -116,6 +119,24 @@ export function PatientDetailPage() {
                       )}
                     </Link>
                   </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      {can('clinical:read') && (
+        <Card className="mt-6 max-w-2xl">
+          <CardHeader>
+            <CardTitle className="text-base">{t.labs.section}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!labs.data?.length ? (
+              <p className="text-sm text-muted-foreground">{t.labs.none}</p>
+            ) : (
+              <ul className="space-y-2">
+                {labs.data.map((lab) => (
+                  <LabRequestItem key={lab.id} lab={lab} />
                 ))}
               </ul>
             )}

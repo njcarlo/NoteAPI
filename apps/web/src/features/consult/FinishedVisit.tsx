@@ -9,6 +9,7 @@ import { useSession } from '@/auth/session';
 import { t } from '@/i18n';
 import { ApiError, errorMessage } from '@/lib/api';
 import { dateLabel, manilaDateTime, vitalsSummary } from '@/lib/format';
+import { ConsultLabs } from '@/features/labs/components';
 import { summaryFromSoap, VisitReferrals } from '@/features/referrals/components';
 import { useAmend, useShareLink } from './api';
 
@@ -127,6 +128,16 @@ export function FinishedVisit({ consult }: { consult: Consult }) {
             )}
           </>
         )}
+      </Card>
+
+      <Card className="space-y-3 p-4">
+        <h2 className="font-semibold">{t.labs.section}</h2>
+        <ConsultLabs
+          visitId={visit.id}
+          labs={consult.labRequests}
+          canWrite={isAuthor}
+          defaultImpression={visit.soap.assessment ?? ''}
+        />
       </Card>
 
       <Card className="space-y-3 p-4">

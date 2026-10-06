@@ -37,10 +37,12 @@ import {
   notFound,
 } from '../../lib/errors';
 import { publishAppointmentsChanged } from '../../lib/events';
+import type { SlipData } from '../../lib/pdf';
 import { renderPrescriptionPdf } from '../../lib/rx-pdf';
 import { iso } from '../../lib/sql';
 import { storage } from '../../lib/storage';
 import { insertAppointment } from '../appointments/service';
+import { consultLabRequests } from '../labs/service';
 import { referredFrom, visitReferrals } from '../referrals/service';
 import { enqueue, followUpReminderTime } from '../notifications/outbox';
 import { getClinic, lockDoctorDay } from '../scheduling/service';
@@ -246,6 +248,7 @@ export async function getConsult(
     visit,
     history: await loadHistory(t, patient.id, visit.id),
     referredFrom: await referredFrom(t, appointmentId),
+    labRequests: await consultLabRequests(t, patient.id),
   };
 }
 
@@ -493,23 +496,18 @@ export async function amendVisit(
   return loadVisit(t, v.appointmentId);
 }
 
-/** Returns the stored PDF, rendering (and storing) it first if needed. */
-export async function prescriptionPdf(t: TenantScope, prescriptionId: string): Promise<Buffer> {
-  const [rx] = await t.tx
-    .select()
-    .from(prescriptions)
-    .where(t.where(prescriptions, eq(prescriptions.id, prescriptionId)));
-  if (!rx) throw notFound('Prescription');
-  if (rx.pdfUrl) {
-    const stored = await storage.get(rx.pdfUrl);
-    if (stored) return stored;
-  }
-
+/** Letterhead, patient block and signature for a slip written by `doctorId` on `at`. */
+export async function loadSlipData(
+  t: TenantScope,
+  doctorId: string,
+  patientId: string,
+  at: Date,
+): Promise<SlipData | null> {
   const clinic = await getClinic(t);
   const [patient] = await t.tx
     .select()
     .from(patients)
-    .where(t.where(patients, eq(patients.id, rx.patientId)));
+    .where(t.where(patients, eq(patients.id, patientId)));
   const [doctor] = await t.tx
     .select({ name: users.name, profile: doctorProfiles })
     .from(users)
@@ -517,20 +515,14 @@ export async function prescriptionPdf(t: TenantScope, prescriptionId: string): P
       doctorProfiles,
       and(eq(doctorProfiles.userId, users.id), eq(doctorProfiles.clinicId, t.clinicId)),
     )
-    .where(eq(users.id, rx.doctorId));
-  if (!patient || !doctor) throw notFound('Prescription');
-  const items = await t.tx
-    .select()
-    .from(prescriptionItems)
-    .where(t.where(prescriptionItems, eq(prescriptionItems.prescriptionId, rx.id)))
-    .orderBy(asc(prescriptionItems.sortOrder));
-  const issued = utcToZoned(rx.issuedAt, clinic.timezone).date;
-
+    .where(eq(users.id, doctorId));
+  if (!patient || !doctor) return null;
+  const day = utcToZoned(at, clinic.timezone).date;
   const [logo, signature] = await Promise.all([
     clinic.logoUrl ? storage.get(clinic.logoUrl) : null,
     doctor.profile?.signatureUrl ? storage.get(doctor.profile.signatureUrl) : null,
   ]);
-  const pdf = await renderPrescriptionPdf({
+  return {
     logo,
     signature,
     clinic: {
@@ -547,16 +539,36 @@ export async function prescriptionPdf(t: TenantScope, prescriptionId: string): P
     },
     patient: {
       name: [patient.firstName, patient.middleName, patient.lastName].filter(Boolean).join(' '),
-      age: patient.birthdate ? ageOn(patient.birthdate, issued) : null,
+      age: patient.birthdate ? ageOn(patient.birthdate, day) : null,
       sex: patient.sex === 'male' ? 'M' : patient.sex === 'female' ? 'F' : null,
       address: patient.address,
     },
     date: new Intl.DateTimeFormat('en-PH', { dateStyle: 'long', timeZone: 'UTC' }).format(
-      new Date(`${issued}T00:00:00Z`),
+      new Date(`${day}T00:00:00Z`),
     ),
-    items,
-    notes: rx.notes,
-  });
+  };
+}
+
+/** Returns the stored PDF, rendering (and storing) it first if needed. */
+export async function prescriptionPdf(t: TenantScope, prescriptionId: string): Promise<Buffer> {
+  const [rx] = await t.tx
+    .select()
+    .from(prescriptions)
+    .where(t.where(prescriptions, eq(prescriptions.id, prescriptionId)));
+  if (!rx) throw notFound('Prescription');
+  if (rx.pdfUrl) {
+    const stored = await storage.get(rx.pdfUrl);
+    if (stored) return stored;
+  }
+
+  const items = await t.tx
+    .select()
+    .from(prescriptionItems)
+    .where(t.where(prescriptionItems, eq(prescriptionItems.prescriptionId, rx.id)))
+    .orderBy(asc(prescriptionItems.sortOrder));
+  const slip = await loadSlipData(t, rx.doctorId, rx.patientId, rx.issuedAt);
+  if (!slip) throw notFound('Prescription');
+  const pdf = await renderPrescriptionPdf({ ...slip, items, notes: rx.notes });
   const key = `clinics/${t.clinicId}/prescriptions/${rx.id}.pdf`;
   await storage.put(key, pdf);
   await t.tx

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { APPOINTMENT_STATUSES, SEXES, SPECIALTIES } from '../constants';
 import { isoDateSchema, optionalText } from './common';
 import { vitalsSchema } from './queue';
+import { labRequestSchema } from './labs';
 import { referralSchema, referredFromSchema } from './referrals';
 
 export const SOAP_FIELDS = ['subjective', 'objective', 'assessment', 'plan'] as const;
@@ -186,6 +187,8 @@ export const consultSchema = z.object({
   history: z.array(visitSummarySchema),
   /** Set when this appointment was booked from a referral. */
   referredFrom: referredFromSchema.nullable(),
+  /** The patient's lab requests from every visit, newest first. */
+  labRequests: z.array(labRequestSchema),
 });
 export type Consult = z.infer<typeof consultSchema>;
 

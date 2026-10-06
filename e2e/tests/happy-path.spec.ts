@@ -16,7 +16,7 @@ async function signIn(browser: Browser, email: string, password: string): Promis
   return page;
 }
 
-test('book online → check in → consult → prescription → referral', async ({ browser }) => {
+test('book online → check in → consult → prescription → referral → labs', async ({ browser }) => {
   // 1. The patient books on their phone.
   const phone = await (
     await browser.newContext({ ...{ viewport: { width: 390, height: 844 } } })
@@ -126,4 +126,44 @@ test('book online → check in → consult → prescription → referral', async
   await expect(desk.getByText('No referrals.')).toBeVisible();
   await doctor.reload();
   await expect(doctor.locator('li', { hasText: 'To Grace Demo Lim, MD' })).toContainText('Booked');
+
+  // 8. The doctor requests labs from the partner laboratory; FBS turns on the fasting note.
+  await doctor.getByRole('button', { name: 'Request labs' }).click();
+  await expect(doctor.getByLabel('Laboratory or imaging center')).toHaveValue(/.+/);
+  await doctor.getByRole('checkbox', { name: 'CBC with platelet count' }).check();
+  await doctor.getByRole('checkbox', { name: 'FBS' }).check();
+  await expect(doctor.getByRole('checkbox', { name: /must fast/ })).toBeChecked();
+  await doctor.getByLabel('Other test').fill('Throat swab culture');
+  await doctor.getByRole('button', { name: 'Add', exact: true }).click();
+  await doctor.getByRole('button', { name: 'Create lab request' }).click();
+  const labItem = doctor.locator('li', { hasText: 'Sample Diagnostic Laboratory' });
+  await expect(labItem).toContainText('CBC with platelet count, FBS, Throat swab culture');
+  const slip = await doctor.request.get(
+    (await labItem.getByRole('link', { name: 'Request slip' }).getAttribute('href'))!,
+  );
+  expect(slip.headers()['content-type']).toBe('application/pdf');
+
+  // 9. The patient comes back with results; the front desk attaches the scan.
+  await desk.goto('/labs');
+  const waiting = desk.locator('li', { hasText: `${PATIENT.last}, ${PATIENT.first}` });
+  await expect(waiting).toContainText('3 tests');
+  await waiting.getByTestId('file-input').setInputFiles({
+    name: 'cbc-result.png',
+    mimeType: 'image/png',
+    buffer: Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.from('scan'),
+    ]),
+  });
+  await expect(desk.getByText('Result attached. The doctor will review it.')).toBeVisible();
+
+  // 10. The doctor opens the result and marks it reviewed.
+  await doctor.goto('/labs');
+  const toReview = doctor.locator('li', { hasText: `${PATIENT.last}, ${PATIENT.first}` });
+  const resultHref = await toReview.getByRole('link', { name: 'Result 1' }).getAttribute('href');
+  expect((await doctor.request.get(resultHref!)).headers()['content-type']).toBe('image/png');
+  await toReview.getByRole('button', { name: 'Mark reviewed' }).click();
+  await toReview.getByLabel('Review note (optional)').fill('Normal CBC; FBS 92 mg/dL');
+  await toReview.getByRole('button', { name: 'Save review' }).click();
+  await expect(doctor.getByText('No lab requests.')).toBeVisible();
 });

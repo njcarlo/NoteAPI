@@ -5,5 +5,6 @@ export * from './schedules';
 export * from './patients';
 export * from './appointments';
 export * from './clinical';
+export * from './labs';
 export * from './notifications';
 export * from './audit';

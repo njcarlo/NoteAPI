@@ -109,3 +109,85 @@ export const REFERRAL_STATUSES = [
   'cancelled',
 ] as const;
 export type ReferralStatus = (typeof REFERRAL_STATUSES)[number];
+
+/** Places the clinic sends patients to: labs and imaging for tests, hospitals and clinics for care. */
+export const FACILITY_KINDS = ['laboratory', 'imaging', 'hospital', 'clinic'] as const;
+export type FacilityKind = (typeof FACILITY_KINDS)[number];
+
+/**
+ * `requested`: the patient has the slip; `results_in`: a result file was attached and waits for
+ * the doctor; `reviewed`: the requesting doctor has seen it.
+ */
+export const LAB_REQUEST_STATUSES = ['requested', 'results_in', 'reviewed', 'cancelled'] as const;
+export type LabRequestStatus = (typeof LAB_REQUEST_STATUSES)[number];
+
+export interface LabTest {
+  name: string;
+  /** Usually done after an 8–10 hour fast. */
+  fasting?: true;
+}
+
+/** Common tests for a quick pick; anything else can be typed in. */
+export const LAB_TEST_GROUPS: { group: string; tests: LabTest[] }[] = [
+  {
+    group: 'Hematology',
+    tests: [{ name: 'CBC with platelet count' }, { name: 'Blood typing' }, { name: 'ESR' }],
+  },
+  {
+    group: 'Clinical microscopy',
+    tests: [{ name: 'Urinalysis' }, { name: 'Fecalysis' }, { name: 'Pregnancy test (urine)' }],
+  },
+  {
+    group: 'Blood chemistry',
+    tests: [
+      { name: 'FBS', fasting: true },
+      { name: 'RBS' },
+      { name: 'HbA1c' },
+      { name: 'Lipid profile', fasting: true },
+      { name: 'Creatinine' },
+      { name: 'BUN' },
+      { name: 'Uric acid' },
+      { name: 'SGPT (ALT)' },
+      { name: 'SGOT (AST)' },
+      { name: 'Sodium' },
+      { name: 'Potassium' },
+      { name: 'OGTT', fasting: true },
+    ],
+  },
+  {
+    group: 'Serology and immunology',
+    tests: [
+      { name: 'HBsAg' },
+      { name: 'Anti-HCV' },
+      { name: 'Dengue NS1' },
+      { name: 'Dengue IgG/IgM' },
+      { name: 'Typhidot' },
+      { name: 'TSH' },
+      { name: 'FT4' },
+    ],
+  },
+  {
+    group: 'Imaging',
+    tests: [
+      { name: 'Chest X-ray (PA)' },
+      { name: 'Whole abdomen ultrasound', fasting: true },
+      { name: 'KUB ultrasound' },
+      { name: 'Pelvic ultrasound' },
+      { name: 'Transvaginal ultrasound' },
+      { name: 'Breast ultrasound' },
+    ],
+  },
+  {
+    group: 'Cardiac and others',
+    tests: [
+      { name: '12-lead ECG' },
+      { name: '2D echocardiogram' },
+      { name: 'Sputum AFB / GeneXpert' },
+      { name: 'Pap smear' },
+    ],
+  },
+];
+
+export const FASTING_TESTS = new Set(
+  LAB_TEST_GROUPS.flatMap((g) => g.tests.filter((test) => test.fasting).map((test) => test.name)),
+);

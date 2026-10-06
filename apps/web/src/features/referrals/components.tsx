@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { useSession } from '@/auth/session';
 import { useDoctors, useSlots } from '@/features/calendar/api';
+import { useFacilities } from '@/features/labs/api';
 import { t } from '@/i18n';
 import { ApiError, errorMessage } from '@/lib/api';
 import { manilaDateTime, manilaTime, todayManila } from '@/lib/format';
@@ -264,6 +265,7 @@ export function ReferralForm({
 }) {
   const { user } = useSession();
   const doctors = useDoctors();
+  const facilities = useFacilities();
   const create = useCreateReferral(visitId);
   const [specialty, setSpecialty] = useState<Specialty | ''>('');
   // Explicit choices only; the defaults below follow the doctor list, which may still be loading.
@@ -385,10 +387,18 @@ export function ReferralForm({
               />
               <Input
                 aria-label={r.externalFacility}
+                list={`facilities-${visitId}`}
                 placeholder={r.externalFacility}
                 value={externalFacility}
                 onChange={(e) => setExternalFacility(e.target.value)}
               />
+              <datalist id={`facilities-${visitId}`}>
+                {facilities.data
+                  ?.filter((f) => f.kind === 'hospital' || f.kind === 'clinic')
+                  .map((f) => (
+                    <option key={f.id} value={f.name} />
+                  ))}
+              </datalist>
             </div>
           )}
         </fieldset>

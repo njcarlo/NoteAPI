@@ -57,7 +57,8 @@ Seed data (all names and numbers are fake):
   one secretary. Dr. Santos (admin, Mon–Sat 08:00–12:00 and 13:00–17:00, 15-minute slots),
   Dr. Cruz (Mon/Wed/Fri afternoons, 20-minute slots) and Dr. Lim (Tue/Thu 09:00–15:00,
   30-minute slots). 20 patients, today's appointments in every status, 7 finished visits with
-  prescriptions, 3 Rx favorites and default message templates.
+  prescriptions, 3 Rx favorites, a partner laboratory, imaging center and hospital, and default
+  message templates.
 - **Sample Imus Clinic** (`/c/sample-imus-clinic`): Dr. Santos again, as a doctor only, with its
   own admin-secretary and patients. Its records are separate from Dasmariñas.
 - **Sample Solo Practice**, Gen. Trias (`/c/sample-solo-practice`): one admin-doctor and no
@@ -90,12 +91,12 @@ pnpm platform:admin --name "Your Name" --email you@example.com
 
 ## Tests
 
-- **`pnpm test`** runs 156 unit and integration tests (35 in `packages/shared`, 121 in `apps/api`). Integration tests use the `clinic_test`
+- **`pnpm test`** runs 163 unit and integration tests (35 in `packages/shared`, 128 in `apps/api`). Integration tests use the `clinic_test`
   database (`TEST_DATABASE_URL` / `TEST_MIGRATION_DATABASE_URL`) with in-memory SMS and email.
   Highlights:
   - `route-security.test.ts`: every route must be classified as public, session-only or
     clinic-scoped (an unclassified route fails the build). Anonymous calls to every non-public
-    route get 401. Clinic B's admin-doctor then calls **all 61 clinic-scoped routes** with clinic
+    route get 401. Clinic B's admin-doctor then calls **all 72 clinic-scoped routes** with clinic
     A's real record ids and valid bodies; nothing succeeds or leaks, and clinic A is verified
     unchanged. Also checks security headers and CORS.
   - `tenant-isolation.test.ts`, `multi-clinic.test.ts`, `platform.test.ts`: the database layer
@@ -106,10 +107,14 @@ pnpm platform:admin --name "Your Name" --email you@example.com
     amendments, message privacy, retries, opt-out, and one run through pg-boss.
   - `referrals.test.ts`: specialty matching, who may refer, decline and cancel, front-desk
     booking without clinical details, the letter's content, and status following the appointment.
+  - `labs.test.ts`: partner facilities, who may request, the slip's content, result uploads
+    checked by file signature, front desk upload without access to results, review and cancel.
 - **`pnpm test:e2e`** (Playwright): a patient books on a phone, the secretary checks them in with
   vitals, the doctor calls them, writes notes and a prescription and finishes the visit, the PDF
   downloads, and the patient opens the share link with their birthdate. The doctor then refers
-  the patient to the clinic's OB-GYN, and the secretary books the referral. It uses the `clinic_e2e`
+  the patient to the clinic's OB-GYN, and the secretary books the referral. Finally the doctor
+  requests labs, the secretary attaches the result the patient brings back, and the doctor
+  reviews it. It uses the `clinic_e2e`
   database (`E2E_DATABASE_URL`, `E2E_MIGRATION_DATABASE_URL`), reseeds it, and starts the API and
   web app on ports 3100 and 5180. Run `pnpm exec playwright install chromium` once, or set
   `PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
@@ -256,6 +261,30 @@ only.
 - Status follows the appointment through a database trigger, whatever path changes it:
   finished → _seen_; cancelled or no-show → back to _to book_.
 
+### Laboratory requests and results
+
+```
+doctor: request slip ─▶ patient goes to the lab ─▶ front desk attaches result ─▶ doctor reviews
+          (requested)                                    (results in)              (reviewed)
+```
+
+- **Partner facilities** (Settings → Partners): the clinic's laboratories, imaging centers,
+  hospitals and specialist clinics, with addresses printed on slips. Deactivated, never deleted.
+- **Lab request** from an open or finished visit: one-click common tests (CBC, urinalysis, FBS,
+  lipid profile, creatinine, SGPT, HbA1c, dengue NS1, chest X-ray, ultrasound, ECG and more) plus
+  any typed test; partner lab, a typed one-off place, or any accredited lab. Ticking a fasting
+  test (FBS, lipid profile, OGTT, whole abdomen ultrasound) turns on the fasting instruction.
+  The clinical impression is prefilled from the assessment. Prints an **A5 request slip** with
+  checkboxes, preparation and the doctor's signature.
+- **Results:** the front desk attaches the scanned or emailed result (PDF, PNG or JPEG, 5 MB,
+  checked by file signature) from **Labs → Waiting for results**. They see the patient, the
+  laboratory and how many tests, not which tests, and cannot open results afterwards.
+- The requesting doctor gets **Labs → Results to review**, opens each file (every opening is
+  audited) and marks it reviewed with an optional note. A later result (a culture that takes
+  days) puts it back in the review list. Results are kept as received: no edits, no deletes.
+- The consultation screen shows the patient's lab requests from every visit, so results are at
+  hand at the follow-up.
+
 ### Notifications
 
 ```
@@ -276,7 +305,7 @@ change ──(same transaction)──▶ outbox ──▶ worker relay ──▶
 ### Settings
 
 Clinic profile and logo, doctor schedules and exceptions, doctor credentials (specialty, PRC,
-PTR, S2) and signature,
+PTR, S2) and signature, partner facilities,
 staff and roles, message templates and log. Rx favorites and SOAP templates are managed from the
 consultation screen.
 
@@ -303,13 +332,13 @@ Health data is sensitive personal information under the Data Privacy Act of 2012
   token in an httpOnly `SameSite=Lax` cookie (only its hash is stored), rotation on sign-in,
   idle expiry, immediate revocation on deactivation or role change.
 - **CSRF:** allowed `Origin` required for unsafe requests, plus a per-session `x-csrf-token`.
-- **Audit log:** every view and change of patient, visit, prescription and referral records, written in the
+- **Audit log:** every view and change of patient, visit, prescription, referral and lab records, written in the
   same transaction; field names only, never values. The app's database role cannot update or
-  delete audit rows, visits, prescriptions or referrals.
+  delete audit rows, visits, prescriptions, referrals, lab requests or lab results.
 - **No PHI in logs or errors:** request logs have method, path (no query string), status and
   timing; database error details are never logged or returned.
 - **Files** are private: prescriptions are served only to signed-in doctors or through a share
-  link, and referral letters only to signed-in doctors; only the clinic logo is public. Uploads are checked by file signature, not just type.
+  link, and referral letters, lab slips and lab results only to signed-in doctors; only the clinic logo is public. Uploads are checked by file signature, not just type.
 - **Links in messages** (cancel, opt-out) are HMAC-signed with `TOKEN_SECRET`; share links are
   random. Only hashes are stored.
 - **Headers:** HSTS, `nosniff`, `Referrer-Policy: no-referrer` (tokens in URLs never leak), CSP
@@ -337,6 +366,8 @@ Health data is sensitive personal information under the Data Privacy Act of 2012
 - **Docker:** the image and Firebase configuration have not been deployed from this environment
   (no Docker or cloud access here). The production bundle was run directly, and the Cloud SQL
   socket form is covered by a test.
+- **Lab results are files,** not structured values: no result trends or abnormal-value flags, and
+  no electronic link with laboratories (the patient carries the slip; staff attach the result).
 - **Out of scope for the MVP:** online payments, video consults, HMO/PhilHealth claims, a patient
   portal login, multi-branch clinics and S2 (dangerous drug) prescriptions. The schema leaves room
   for them: `doctor_profiles.s2_no` already exists, and patients, appointments and prescriptions are

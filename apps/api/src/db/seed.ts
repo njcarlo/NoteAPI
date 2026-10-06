@@ -14,6 +14,7 @@ import { provisionClinic, upsertPerson } from './provision';
 import {
   appointments,
   drugs,
+  partnerFacilities,
   patients,
   prescriptionItems,
   prescriptions,
@@ -68,6 +69,7 @@ const { db, client } = createDb(url, 1);
 try {
   await db.execute(sql`
     truncate table audit_logs, notification_logs, outbox, notification_templates, rx_share_tokens,
+      lab_results, lab_requests, partner_facilities, referrals,
       prescription_items, prescriptions, rx_favorites, soap_templates, visit_amendments, visits, appointments,
       patients, schedule_exceptions, schedules, secretary_assignments, doctor_profiles, sessions,
       memberships, users, clinics, drugs
@@ -132,6 +134,31 @@ try {
   );
   const doctor = { id: doctorId as string };
   const clinicId = clinic.id;
+
+  // Partner facilities the doctors send patients to (fictional names).
+  await db.insert(partnerFacilities).values([
+    {
+      clinicId,
+      name: 'Sample Diagnostic Laboratory',
+      kind: 'laboratory',
+      address: 'Ground Floor, Sample Plaza, Aguinaldo Hwy., Dasmariñas, Cavite',
+      contactNumber: '+639170000101',
+    },
+    {
+      clinicId,
+      name: 'Sample Imaging Center',
+      kind: 'imaging',
+      address: 'Sample Medical Arts Bldg., Dasmariñas, Cavite',
+      contactNumber: '+639170000102',
+    },
+    {
+      clinicId,
+      name: 'Sample Medical Center',
+      kind: 'hospital',
+      address: 'Congressional Ave., Dasmariñas, Cavite',
+      contactNumber: '+639170000103',
+    },
+  ]);
 
   // A solo practice: one doctor who is also the admin and runs the front desk. No secretary.
   const {

@@ -2,6 +2,8 @@ import { pgEnum } from 'drizzle-orm/pg-core';
 import {
   APPOINTMENT_SOURCES,
   CLINIC_STATUSES,
+  FACILITY_KINDS,
+  LAB_REQUEST_STATUSES,
   APPOINTMENT_STATUSES,
   APPOINTMENT_TYPES,
   NOTIFICATION_CHANNELS,
@@ -22,3 +24,5 @@ export const notificationStatusEnum = pgEnum('notification_status', NOTIFICATION
 export const clinicStatusEnum = pgEnum('clinic_status', CLINIC_STATUSES);
 export const referralUrgencyEnum = pgEnum('referral_urgency', REFERRAL_URGENCIES);
 export const referralStatusEnum = pgEnum('referral_status', REFERRAL_STATUSES);
+export const facilityKindEnum = pgEnum('facility_kind', FACILITY_KINDS);
+export const labRequestStatusEnum = pgEnum('lab_request_status', LAB_REQUEST_STATUSES);

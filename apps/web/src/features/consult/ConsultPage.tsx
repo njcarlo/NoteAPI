@@ -21,6 +21,7 @@ import { useSession } from '@/auth/session';
 import { useSlots } from '@/features/calendar/api';
 import { t } from '@/i18n';
 import { ApiError, errorMessage } from '@/lib/api';
+import { ConsultLabs } from '@/features/labs/components';
 import {
   ReferredFromBanner,
   summaryFromSoap,
@@ -282,6 +283,16 @@ function ConsultEditor({ consult }: { consult: Consult }) {
           onAcknowledge={setAcknowledged}
           errors={fieldErrors}
           disabled={!isMine}
+        />
+      </Card>
+
+      <Card className="p-4">
+        <h2 className="mb-3 font-semibold">{t.labs.section}</h2>
+        <ConsultLabs
+          visitId={visit.id}
+          labs={consult.labRequests}
+          canWrite={isMine}
+          defaultImpression={soap.assessment ?? ''}
         />
       </Card>
 
